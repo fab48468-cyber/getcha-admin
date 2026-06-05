@@ -1,16 +1,11 @@
 'use client'
 
-import { createClient } from '@supabase/supabase-js'
 import { useActionState, useState } from 'react'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 import {
   addGachaInventoryAction,
   createGachaProductAction,
   updateGachaSeriesAction,
+  uploadGachaImageAction,
 } from '../actions'
 
 type Series = {
@@ -213,20 +208,15 @@ function ProductCreateModal({
   const handleUpload = async () => {
     if (!imageFile) return
     setUploading(true)
-    const ext = imageFile.name.split('.').pop()
-    const fileName = `${Date.now()}.${ext}`
-    const { data, error } = await supabaseAdmin.storage
-      .from('gacha-images')
-      .upload(fileName, imageFile, { upsert: true })
+    const fd = new FormData()
+    fd.append('file', imageFile)
+    const result = await uploadGachaImageAction(fd)
     setUploading(false)
-    if (error) {
-      alert('업로드 실패: ' + error.message)
+    if (result.error) {
+      alert('업로드 실패: ' + result.error)
       return
     }
-    const { data: urlData } = supabaseAdmin.storage
-      .from('gacha-images')
-      .getPublicUrl(data.path)
-    setImageUrl(urlData.publicUrl)
+    setImageUrl(result.url!)
   }
 
   return (
