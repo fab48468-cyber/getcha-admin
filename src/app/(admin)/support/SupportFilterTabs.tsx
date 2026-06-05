@@ -30,6 +30,10 @@ const CATEGORY_STYLES: Record<string, { label: string; color: string }> = {
   shipping: { label: '배송', color: '#22C55E' },
   account: { label: '계정', color: '#8B5CF6' },
   product: { label: '상품', color: '#F97316' },
+  bug: { label: '버그', color: '#EF4444' },
+  gacha_kuji: { label: '가챠/쿠지', color: '#EC4899' },
+  market: { label: '마켓', color: '#14B8A6' },
+  other: { label: '기타', color: '#6B7280' },
   etc: { label: '기타', color: '#6B7280' },
 }
 
