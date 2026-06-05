@@ -234,3 +234,18 @@ export async function createKujiTicketsAction(
   revalidatePath(`/kuji/${seriesId}`)
   return { error: '', success: `${rows.length.toLocaleString()}장 생성되었습니다.` }
 }
+
+export async function deleteKujiSeriesAction(seriesId: string) {
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('kuji_series')
+    .delete()
+    .eq('id', seriesId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/kuji')
+  redirect('/kuji')
+}
