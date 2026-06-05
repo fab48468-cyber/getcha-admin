@@ -4,12 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { getAdminUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-type InquiryStatus = 'pending' | 'in_progress' | 'resolved' | 'closed'
+type InquiryStatus = 'pending' | 'in_progress' | 'answered' | 'closed'
 
 const VALID_STATUSES = new Set<InquiryStatus>([
   'pending',
   'in_progress',
-  'resolved',
+  'answered',
   'closed',
 ])
 

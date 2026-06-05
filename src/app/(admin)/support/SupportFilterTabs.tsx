@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 
-export type InquiryStatus = 'pending' | 'in_progress' | 'resolved' | 'closed'
+export type InquiryStatus = 'pending' | 'in_progress' | 'answered' | 'closed'
 
 export type SupportInquiryListRow = {
   id: string
@@ -21,7 +21,7 @@ const STATUS_STYLES: Record<
 > = {
   pending: { label: '대기중', backgroundColor: '#FEF3C7', color: '#D97706' },
   in_progress: { label: '처리중', backgroundColor: '#EEF0FF', color: '#8B5CF6' },
-  resolved: { label: '완료', backgroundColor: '#EEFBD0', color: '#5B8B1E' },
+  answered: { label: '완료', backgroundColor: '#EEFBD0', color: '#5B8B1E' },
   closed: { label: '종료', backgroundColor: '#F5F5F5', color: '#6B6B6B' },
 }
 
@@ -37,7 +37,7 @@ const FILTER_TABS = [
   { key: 'all', label: '전체' },
   { key: 'pending', label: '대기중' },
   { key: 'in_progress', label: '처리중' },
-  { key: 'resolved', label: '완료' },
+  { key: 'answered', label: '완료' },
   { key: 'closed', label: '종료' },
 ] as const
 
@@ -117,7 +117,7 @@ export default function SupportFilterTabs({
         all: 0,
         pending: 0,
         in_progress: 0,
-        resolved: 0,
+        answered: 0,
         closed: 0,
       }
     )

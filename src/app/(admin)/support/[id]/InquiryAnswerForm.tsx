@@ -6,7 +6,7 @@ import { updateInquiryAction } from '../actions'
 const STATUS_OPTIONS = [
   { value: 'pending', label: '대기중' },
   { value: 'in_progress', label: '처리중' },
-  { value: 'resolved', label: '완료' },
+  { value: 'answered', label: '완료' },
   { value: 'closed', label: '종료' },
 ]
 
