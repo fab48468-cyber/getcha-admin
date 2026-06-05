@@ -155,6 +155,8 @@ export async function addGachaInventoryAction(
 
 export async function uploadGachaImageAction(formData: FormData) {
   'use server'
+  console.log('[upload] SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  console.log('[upload] SUPABASE_URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL)
   const file = formData.get('file') as File
   if (!file) return { error: '파일이 없습니다.' }
 
