@@ -97,6 +97,7 @@ function SeriesEditForm({ series }: { series: Series }) {
     updateGachaSeriesAction.bind(null, series.id),
     initialActionState
   )
+  const [thumbUrl, setThumbUrl] = useState(series.thumbnail_url ?? '')
 
   return (
     <form action={formAction}>
@@ -119,13 +120,21 @@ function SeriesEditForm({ series }: { series: Series }) {
         </div>
 
         <div>
-          <label style={labelStyle}>썸네일 URL</label>
-          <input
-            name="thumbnail_url"
-            type="text"
-            defaultValue={series.thumbnail_url ?? ''}
-            style={inputStyle}
+          <label style={labelStyle}>썸네일 이미지</label>
+          {thumbUrl && (
+            <img
+              src={thumbUrl}
+              alt="현재 썸네일"
+              style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, border: '1px solid #E0DDD8', marginBottom: 8 }}
+            />
+          )}
+          <ImageCropUpload
+            onUploaded={(url) => setThumbUrl(url)}
+            uploadAction={uploadGachaImageAction}
+            aspect={1}
+            maxSize={800}
           />
+          <input name="thumbnail_url" type="hidden" value={thumbUrl} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
