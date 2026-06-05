@@ -5,8 +5,8 @@ import {
   createKujiProductAction,
   createKujiTicketsAction,
   updateKujiSeriesAction,
-  uploadKujiImageAction,
 } from '../actions'
+import { uploadKujiImageAction } from './uploadAction'
 
 type Series = {
   id: string

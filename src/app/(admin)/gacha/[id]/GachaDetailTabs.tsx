@@ -5,8 +5,8 @@ import {
   addGachaInventoryAction,
   createGachaProductAction,
   updateGachaSeriesAction,
-  uploadGachaImageAction,
 } from '../actions'
+import { uploadGachaImageAction } from './uploadAction'
 
 type Series = {
   id: string
