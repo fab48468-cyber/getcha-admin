@@ -152,3 +152,18 @@ export async function addGachaInventoryAction(
   revalidatePath(`/gacha/${seriesId}`)
   return { error: '', success: `${quantity.toLocaleString()}개 추가되었습니다.` }
 }
+
+export async function deleteGachaSeriesAction(seriesId: string) {
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('gacha_series')
+    .delete()
+    .eq('id', seriesId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/gacha')
+  redirect('/gacha')
+}

@@ -5,6 +5,7 @@ import {
   addGachaInventoryAction,
   createGachaProductAction,
   updateGachaSeriesAction,
+  deleteGachaSeriesAction,
 } from '../actions'
 import { uploadGachaImageAction } from './uploadAction'
 
@@ -493,6 +494,7 @@ export default function GachaDetailTabs({
     'series'
   )
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const tabs = [
     { key: 'series', label: '시리즈 정보 수정' },
@@ -528,16 +530,91 @@ export default function GachaDetailTabs({
       </div>
 
       {activeTab === 'series' && (
-        <div
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 12,
-            border: '1px solid #E0DDD8',
-            padding: 20,
-            maxWidth: 760,
-          }}
-        >
-          <SeriesEditForm series={series} />
+        <div style={{ display: 'grid', gap: 12, maxWidth: 760 }}>
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              border: '1px solid #E0DDD8',
+              padding: 20,
+            }}
+          >
+            <SeriesEditForm series={series} />
+          </div>
+
+          <div
+            style={{
+              backgroundColor: '#FEF2F2',
+              borderRadius: 12,
+              border: '1px solid #FCA5A5',
+              padding: 20,
+            }}
+          >
+            <h3 style={{ color: '#991B1B', fontSize: 15, fontWeight: 900, margin: '0 0 8px' }}>
+              위험 구역
+            </h3>
+            <p style={{ color: '#6B7280', fontSize: 13, margin: '0 0 14px' }}>
+              시리즈를 삭제하면 관련 상품과 재고도 모두 삭제됩니다. 이 작업은 되돌릴 수 없어요.
+            </p>
+            {!showDeleteConfirm ? (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                style={{
+                  backgroundColor: '#EF4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '10px 16px',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                시리즈 삭제
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 13, color: '#991B1B', fontWeight: 700 }}>
+                  정말 삭제할까요?
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await deleteGachaSeriesAction(series.id)
+                  }}
+                  style={{
+                    backgroundColor: '#EF4444',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '8px 14px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  삭제 확인
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  style={{
+                    backgroundColor: '#fff',
+                    color: '#6B7280',
+                    border: '1px solid #E0DDD8',
+                    borderRadius: 8,
+                    padding: '8px 14px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  취소
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
