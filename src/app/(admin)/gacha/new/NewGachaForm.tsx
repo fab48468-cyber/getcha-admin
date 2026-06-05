@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import ImageCropUpload from '@/components/ImageCropUpload'
 import { createGachaSeriesAction } from '../actions'
 import { uploadGachaThumbnailAction } from './uploadAction'
 
@@ -29,31 +30,7 @@ export default function NewGachaForm() {
     createGachaSeriesAction,
     initialState
   )
-  const [thumbFile, setThumbFile] = useState<File | null>(null)
-  const [thumbPreview, setThumbPreview] = useState<string>('')
   const [thumbUrl, setThumbUrl] = useState('')
-  const [uploading, setUploading] = useState(false)
-
-  const handleThumbChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setThumbFile(file)
-    setThumbPreview(URL.createObjectURL(file))
-  }
-
-  const handleThumbUpload = async () => {
-    if (!thumbFile) return
-    setUploading(true)
-    const fd = new FormData()
-    fd.append('file', thumbFile)
-    const result = await uploadGachaThumbnailAction(fd)
-    setUploading(false)
-    if (result.error) {
-      alert('업로드 실패: ' + result.error)
-      return
-    }
-    setThumbUrl(result.url!)
-  }
 
   return (
     <form action={formAction}>
@@ -91,52 +68,13 @@ export default function NewGachaForm() {
 
         <div>
           <label style={labelStyle}>썸네일 이미지</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {thumbPreview ? (
-              <img
-                src={thumbPreview}
-                alt="미리보기"
-                style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, border: '1px solid #E0DDD8' }}
-              />
-            ) : null}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleThumbChange}
-              style={{ fontSize: 13 }}
-            />
-            {thumbFile && !thumbUrl && (
-              <button
-                type="button"
-                onClick={handleThumbUpload}
-                disabled={uploading}
-                style={{
-                  backgroundColor: '#8B5CF6',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '8px 12px',
-                  fontSize: 13,
-                  fontWeight: 800,
-                  cursor: uploading ? 'not-allowed' : 'pointer',
-                  opacity: uploading ? 0.6 : 1,
-                  width: 'fit-content',
-                }}
-              >
-                {uploading ? '업로드 중...' : '업로드'}
-              </button>
-            )}
-            {thumbUrl && (
-              <span style={{ fontSize: 12, color: '#5B8B1E', fontWeight: 700 }}>
-                ✓ 업로드 완료
-              </span>
-            )}
-            <input
-              name="thumbnail_url"
-              type="hidden"
-              value={thumbUrl}
-            />
-          </div>
+          <ImageCropUpload
+            onUploaded={(url) => setThumbUrl(url)}
+            uploadAction={uploadGachaThumbnailAction}
+            aspect={1}
+            maxSize={800}
+          />
+          <input name="thumbnail_url" type="hidden" value={thumbUrl} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
