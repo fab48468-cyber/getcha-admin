@@ -1,6 +1,12 @@
 'use client'
 
+import { createClient } from '@supabase/supabase-js'
 import { useActionState, useState } from 'react'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 import {
   addGachaInventoryAction,
   createGachaProductAction,
@@ -192,6 +198,36 @@ function ProductCreateModal({
     createGachaProductAction.bind(null, seriesId),
     initialActionState
   )
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>('')
+  const [uploading, setUploading] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  const handleUpload = async () => {
+    if (!imageFile) return
+    setUploading(true)
+    const ext = imageFile.name.split('.').pop()
+    const fileName = `${Date.now()}.${ext}`
+    const { data, error } = await supabaseAdmin.storage
+      .from('gacha-images')
+      .upload(fileName, imageFile, { upsert: true })
+    setUploading(false)
+    if (error) {
+      alert('업로드 실패: ' + error.message)
+      return
+    }
+    const { data: urlData } = supabaseAdmin.storage
+      .from('gacha-images')
+      .getPublicUrl(data.path)
+    setImageUrl(urlData.publicUrl)
+  }
 
   return (
     <div
@@ -250,8 +286,52 @@ function ProductCreateModal({
               <input name="name" required style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>이미지 URL</label>
-              <input name="image_url" type="text" style={inputStyle} />
+              <label style={labelStyle}>이미지</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="미리보기"
+                    style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, border: '1px solid #E0DDD8' }}
+                  />
+                ) : null}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  style={{ fontSize: 13 }}
+                />
+                {imageFile && !imageUrl && (
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    style={{
+                      backgroundColor: '#8B5CF6',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: uploading ? 'not-allowed' : 'pointer',
+                      opacity: uploading ? 0.6 : 1,
+                    }}
+                  >
+                    {uploading ? '업로드 중...' : '업로드'}
+                  </button>
+                )}
+                {imageUrl && (
+                  <span style={{ fontSize: 12, color: '#5B8B1E', fontWeight: 700 }}>
+                    ✓ 업로드 완료
+                  </span>
+                )}
+                <input
+                  name="image_url"
+                  type="hidden"
+                  value={imageUrl}
+                />
+              </div>
             </div>
             <div>
               <label style={labelStyle}>등급</label>
