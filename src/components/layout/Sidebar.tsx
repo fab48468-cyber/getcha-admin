@@ -16,6 +16,7 @@ const BASE_NAV_ITEMS = [
   { icon: '📖', label: '도감북 관리', href: '/dex' },
   { icon: '👥', label: '유저 관리', href: '/users' },
   { icon: '📢', label: '공지사항', href: '/announcements' },
+  { icon: '🔔', label: '푸시 알림', href: '/push-notifications' },
   { icon: '💬', label: '고객센터', href: '/support' },
   { icon: '🔍', label: '관리자 로그', href: '/admin-logs' },
 ] as const
