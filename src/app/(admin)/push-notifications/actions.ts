@@ -154,6 +154,7 @@ export async function sendPushNotification(
       title: input.title,
       body: input.body,
       is_read: false,
+      screen: input.screen?.trim() ? input.screen.trim() : null,
     }))
     await supabase.from('notifications').insert(notifRows)
   }
