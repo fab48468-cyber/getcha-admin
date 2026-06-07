@@ -21,9 +21,10 @@ async function sendExpoPush(
   title: string,
   body: string,
   data: Record<string, unknown>
-): Promise<{ ok: number; fail: number }> {
+): Promise<{ ok: number; fail: number; deadTokens: string[] }> {
   let ok = 0
   let fail = 0
+  const deadTokens: string[] = []
   const CHUNK = 100
 
   for (let i = 0; i < tokens.length; i += CHUNK) {
@@ -48,9 +49,19 @@ async function sendExpoPush(
       const json = await res.json()
       // Expo는 각 메시지별 status를 배열로 반환
       if (Array.isArray(json?.data)) {
-        for (const item of json.data) {
-          if (item.status === 'ok') ok++
-          else fail++
+        for (let idx = 0; idx < json.data.length; idx++) {
+          const item: any = json.data[idx]
+          if (item.status === 'ok') {
+            ok++
+          } else {
+            fail++
+            if (
+              item.status === 'error' &&
+              item.details?.error === 'DeviceNotRegistered'
+            ) {
+              deadTokens.push(chunk[idx])
+            }
+          }
         }
       } else {
         fail += chunk.length
@@ -60,7 +71,7 @@ async function sendExpoPush(
     }
   }
 
-  return { ok, fail }
+  return { ok, fail, deadTokens }
 }
 
 export async function sendPushNotification(
@@ -112,7 +123,22 @@ export async function sendPushNotification(
   const data: Record<string, unknown> = {}
   if (input.screen) data.screen = input.screen
 
-  const { ok, fail } = await sendExpoPush(tokens, input.title, input.body, data)
+  const { ok, fail, deadTokens } = await sendExpoPush(
+    tokens,
+    input.title,
+    input.body,
+    data
+  )
+
+  if (deadTokens.length > 0) {
+    const { error: deactivateErr } = await supabase
+      .from('push_tokens')
+      .update({ is_active: false })
+      .in('expo_token', deadTokens)
+    if (deactivateErr) {
+      console.error('죽은 토큰 비활성화 실패:', deactivateErr.message)
+    }
+  }
 
   // 6. notifications 테이블에 기록 (앱 내 알림함에도 표시)
   //    대상 유저별로 INSERT
