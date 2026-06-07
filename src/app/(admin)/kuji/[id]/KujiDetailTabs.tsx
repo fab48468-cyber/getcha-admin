@@ -544,6 +544,8 @@ export default function KujiDetailTabs({
   )
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
   const lastOneProducts = products.filter((product) => product.is_last_one)
 
   const tabs = [
@@ -606,6 +608,7 @@ export default function KujiDetailTabs({
             <p style={{ color: '#6B7280', fontSize: 13, margin: '0 0 14px' }}>
               시리즈를 삭제하면 관련 상품과 티켓도 모두 삭제됩니다. 이 작업은 되돌릴 수 없어요.
             </p>
+            <ActionMessage error={deleteError} />
             {!showDeleteConfirm ? (
               <button
                 type="button"
@@ -630,8 +633,17 @@ export default function KujiDetailTabs({
                 </span>
                 <button
                   type="button"
+                  disabled={isDeleting}
                   onClick={async () => {
-                    await deleteKujiSeriesAction(series.id)
+                    setDeleteError('')
+                    setIsDeleting(true)
+                    const result = await deleteKujiSeriesAction(series.id)
+                    // 성공 시 액션 내부 redirect()가 throw되어 여기 도달 안 함.
+                    // 여기 도달했다면 result에 error가 담겨 반환된 경우.
+                    if (result?.error) {
+                      setDeleteError(result.error)
+                    }
+                    setIsDeleting(false)
                   }}
                   style={{
                     backgroundColor: '#EF4444',
@@ -644,11 +656,14 @@ export default function KujiDetailTabs({
                     cursor: 'pointer',
                   }}
                 >
-                  삭제 확인
+                  {isDeleting ? '삭제 중...' : '삭제 확인'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowDeleteConfirm(false)}
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setDeleteError('')
+                  }}
                   style={{
                     backgroundColor: '#fff',
                     color: '#6B7280',

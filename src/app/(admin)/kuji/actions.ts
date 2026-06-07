@@ -232,13 +232,81 @@ export async function createKujiTicketsAction(
 
 export async function deleteKujiSeriesAction(seriesId: string) {
   const adminClient = createAdminClient()
-  const { error } = await adminClient
+
+  // 1. 판매 이력 확인 — 있으면 삭제 거부
+  const { count: purchaseCount, error: purchaseCheckError } = await adminClient
+    .from('kuji_purchases')
+    .select('id', { count: 'exact', head: true })
+    .eq('series_id', seriesId)
+
+  if (purchaseCheckError) {
+    return { error: purchaseCheckError.message }
+  }
+
+  if ((purchaseCount ?? 0) > 0) {
+    return {
+      error: `판매 이력이 ${purchaseCount}건 있어 삭제할 수 없습니다. 판매가 시작된 시리즈는 삭제 대신 종료(closed) 처리하세요.`,
+    }
+  }
+
+  // 2. 자식 데이터 역순 삭제
+  //    이 시리즈의 상품 id 목록 확보
+  const { data: products, error: productError } = await adminClient
+    .from('kuji_products')
+    .select('id')
+    .eq('series_id', seriesId)
+
+  if (productError) {
+    return { error: productError.message }
+  }
+
+  const productIds = (products ?? []).map((p) => p.id as string)
+
+  // 2-1. box_items (라스트원 보너스 등 — 판매이력 없어도 방어적으로 정리)
+  if (productIds.length > 0) {
+    const { error: boxError } = await adminClient
+      .from('box_items')
+      .delete()
+      .in('product_id', productIds)
+    if (boxError) {
+      return { error: `box_items 삭제 실패: ${boxError.message}` }
+    }
+  }
+
+  // 2-2. 티켓
+  const { error: ticketError } = await adminClient
+    .from('kuji_tickets')
+    .delete()
+    .eq('series_id', seriesId)
+  if (ticketError) {
+    return { error: `kuji_tickets 삭제 실패: ${ticketError.message}` }
+  }
+
+  // 2-3. 라스트원 참조 끊기 (kuji_products 삭제 전 필수)
+  const { error: nullifyError } = await adminClient
+    .from('kuji_series')
+    .update({ last_one_product_id: null })
+    .eq('id', seriesId)
+  if (nullifyError) {
+    return { error: `라스트원 참조 해제 실패: ${nullifyError.message}` }
+  }
+
+  // 2-4. 상품 행
+  const { error: productDeleteError } = await adminClient
+    .from('kuji_products')
+    .delete()
+    .eq('series_id', seriesId)
+  if (productDeleteError) {
+    return { error: `kuji_products 삭제 실패: ${productDeleteError.message}` }
+  }
+
+  // 3. 시리즈 행
+  const { error: seriesError } = await adminClient
     .from('kuji_series')
     .delete()
     .eq('id', seriesId)
-
-  if (error) {
-    return { error: error.message }
+  if (seriesError) {
+    return { error: `kuji_series 삭제 실패: ${seriesError.message}` }
   }
 
   revalidatePath('/kuji')
