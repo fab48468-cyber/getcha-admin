@@ -119,15 +119,19 @@ export async function createKujiProductAction(
     return { error: '등급을 입력해 주세요.' }
   }
 
-  if (!Number.isFinite(quantity) || quantity < 1) {
-    return { error: '수량은 1 이상이어야 합니다.' }
+  if (!Number.isFinite(quantity) || quantity < 0) {
+    return { error: '수량은 0 이상이어야 합니다.' }
+  }
+  if (!isLastOne && quantity < 1) {
+    return { error: '일반 상품의 수량은 1 이상이어야 합니다.' }
   }
 
   if (quantity > 50) {
     return { error: '수량은 최대 50까지 입력할 수 있습니다.' }
   }
 
-  const rows = Array.from({ length: quantity }, () => ({
+  const insertQuantity = isLastOne ? 1 : quantity
+  const rows = Array.from({ length: insertQuantity }, () => ({
     series_id: seriesId,
     name,
     description: description || null,
