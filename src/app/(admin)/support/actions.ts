@@ -22,6 +22,39 @@ function getStatus(formData: FormData) {
   return VALID_STATUSES.has(status) ? status : null
 }
 
+async function sendExpoPush(
+  tokens: string[],
+  title: string,
+  body: string,
+  data: Record<string, unknown>
+): Promise<{ deadTokens: string[] }> {
+  const deadTokens: string[] = []
+  const CHUNK = 100
+  for (let i = 0; i < tokens.length; i += CHUNK) {
+    const chunk = tokens.slice(i, i + CHUNK)
+    const messages = chunk.map((to) => ({ to, title, body, data, sound: 'default' }))
+    try {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(messages),
+      })
+      const json = await res.json()
+      if (Array.isArray(json?.data)) {
+        for (let idx = 0; idx < json.data.length; idx++) {
+          const item: any = json.data[idx]
+          if (item.status === 'error' && item.details?.error === 'DeviceNotRegistered') {
+            deadTokens.push(chunk[idx])
+          }
+        }
+      }
+    } catch {
+      // 푸시 실패는 무시 (알림함 INSERT는 별개로 진행)
+    }
+  }
+  return { deadTokens }
+}
+
 export async function updateInquiryAction(formData: FormData) {
   const inquiryId = getString(formData, 'inquiryId')
   const status = getStatus(formData)
@@ -43,7 +76,7 @@ export async function updateInquiryAction(formData: FormData) {
   const adminClient = createAdminClient()
   const { data: currentInquiry, error: currentError } = await adminClient
     .from('support_inquiries')
-    .select('answered_at')
+    .select('answered_at, user_id')
     .eq('id', inquiryId)
     .single()
 
@@ -69,6 +102,48 @@ export async function updateInquiryAction(formData: FormData) {
 
   if (updateError) {
     return { error: updateError.message }
+  }
+
+  const isNewAnswer = !currentInquiry.answered_at && answerContent
+  if (isNewAnswer && currentInquiry.user_id) {
+    try {
+      const inquirerUserId = currentInquiry.user_id
+      const notifBody =
+        answerContent.length > 60 ? answerContent.slice(0, 60) + '…' : answerContent
+
+      await adminClient.from('notifications').insert({
+        user_id: inquirerUserId,
+        notification_type: 'support_reply',
+        title: '문의하신 내용에 답변이 등록되었어요',
+        body: notifBody,
+        is_read: false,
+        screen: 'support',
+      })
+
+      const { data: tokenRows } = await adminClient
+        .from('push_tokens')
+        .select('expo_token')
+        .eq('user_id', inquirerUserId)
+        .eq('is_active', true)
+
+      const tokens = (tokenRows ?? []).map((r) => r.expo_token)
+      if (tokens.length > 0) {
+        const { deadTokens } = await sendExpoPush(
+          tokens,
+          '문의 답변 도착',
+          '문의하신 내용에 답변이 등록되었어요. 확인해보세요!',
+          { screen: 'support' }
+        )
+        if (deadTokens.length > 0) {
+          await adminClient
+            .from('push_tokens')
+            .update({ is_active: false })
+            .in('expo_token', deadTokens)
+        }
+      }
+    } catch (err) {
+      console.error('문의 답변 알림/푸시 발송 실패:', err)
+    }
   }
 
   revalidatePath('/support')
