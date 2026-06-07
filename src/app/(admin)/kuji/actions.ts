@@ -162,12 +162,12 @@ export async function createKujiTicketsAction(
     await Promise.all([
       adminClient
         .from('kuji_series')
-        .select('status, total_tickets, remaining_tickets')
+        .select('status, total_tickets, remaining_tickets, last_one_product_id')
         .eq('id', seriesId)
         .single(),
       adminClient
         .from('kuji_products')
-        .select('id')
+        .select('id, is_last_one, grade')
         .eq('series_id', seriesId),
       adminClient
         .from('kuji_tickets')
@@ -185,7 +185,13 @@ export async function createKujiTicketsAction(
     return { error: '티켓 생성은 종료 상태(closed)에서만 가능합니다.' }
   }
 
-  const productIds = (products ?? []).map((product) => product.id as string)
+  const lastOneId = series.last_one_product_id
+  const normalProducts = (products ?? []).filter((p) => {
+    const isLastOne =
+      p.id === lastOneId || p.is_last_one === true || p.grade === 'last_one'
+    return !isLastOne
+  })
+  const productIds = normalProducts.map((product) => product.id as string)
   const rows: {
     series_id: string
     product_id: string
