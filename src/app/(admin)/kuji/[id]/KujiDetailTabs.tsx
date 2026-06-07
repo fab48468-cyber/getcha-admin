@@ -43,6 +43,7 @@ type KujiDetailTabsProps = {
   series: Series
   products: Product[]
   ticketCounts: TicketCounts
+  ticketCountByProduct: Record<string, number>
 }
 
 const initialActionState = { error: '', success: '' }
@@ -452,9 +453,11 @@ function ProductCard({ product }: { product: Product }) {
 function TicketCreateForm({
   series,
   products,
+  ticketCountByProduct,
 }: {
   series: Series
   products: Product[]
+  ticketCountByProduct: Record<string, number>
 }) {
   const [state, formAction, isPending] = useActionState(
     createKujiTicketsAction.bind(null, series.id),
@@ -499,6 +502,9 @@ function TicketCreateForm({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <strong style={{ color: '#1A1A1A', fontSize: 14 }}>{product.name}</strong>
               <GradeBadge grade={product.grade} />
+              <span style={{ color: '#6B7280', fontSize: 12, fontWeight: 700 }}>
+                현재 {(ticketCountByProduct[product.id] ?? 0).toLocaleString()}장
+              </span>
             </div>
             <input
               name={`quantity_${product.id}`}
@@ -538,6 +544,7 @@ export default function KujiDetailTabs({
   series,
   products,
   ticketCounts,
+  ticketCountByProduct,
 }: KujiDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<'series' | 'products' | 'tickets'>(
     'series'
@@ -788,7 +795,11 @@ export default function KujiDetailTabs({
             >
               티켓 bulk 생성
             </h3>
-            <TicketCreateForm series={series} products={products} />
+            <TicketCreateForm
+              series={series}
+              products={products}
+              ticketCountByProduct={ticketCountByProduct}
+            />
           </div>
         </div>
       )}

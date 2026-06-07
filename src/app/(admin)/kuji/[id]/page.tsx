@@ -27,6 +27,7 @@ type KujiProduct = {
 
 type TicketRow = {
   status: 'available' | 'selecting' | 'sold'
+  product_id: string | null
 }
 
 export default async function KujiDetailPage({
@@ -51,7 +52,7 @@ export default async function KujiDetailPage({
         .select('id, name, description, image_url, grade, is_last_one, display_order')
         .eq('series_id', id)
         .order('display_order', { ascending: true }),
-      adminClient.from('kuji_tickets').select('status').eq('series_id', id),
+      adminClient.from('kuji_tickets').select('status, product_id').eq('series_id', id),
     ])
 
   if (!seriesData) {
@@ -67,6 +68,15 @@ export default async function KujiDetailPage({
       return acc
     },
     { available: 0, selecting: 0, sold: 0, total: 0 }
+  )
+  const ticketCountByProduct = ((ticketsData ?? []) as TicketRow[]).reduce(
+    (acc, row) => {
+      if (row.product_id) {
+        acc[row.product_id] = (acc[row.product_id] ?? 0) + 1
+      }
+      return acc
+    },
+    {} as Record<string, number>
   )
 
   return (
@@ -112,6 +122,7 @@ export default async function KujiDetailPage({
         series={series}
         products={products}
         ticketCounts={ticketCounts}
+        ticketCountByProduct={ticketCountByProduct}
       />
     </div>
   )
