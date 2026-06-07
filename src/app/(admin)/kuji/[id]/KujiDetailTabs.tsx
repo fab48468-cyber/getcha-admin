@@ -248,6 +248,12 @@ function ProductCreateModal({
     initialActionState
   )
   const [imageUrl, setImageUrl] = useState('')
+  const [isLastOne, setIsLastOne] = useState(false)
+
+  function handleClose() {
+    setIsLastOne(false)
+    onClose()
+  }
 
   return (
     <div
@@ -284,7 +290,7 @@ function ProductCreateModal({
           </h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               backgroundColor: 'transparent',
               border: 'none',
@@ -339,7 +345,12 @@ function ProductCreateModal({
                 fontWeight: 800,
               }}
             >
-              <input name="is_last_one" type="checkbox" />
+              <input
+                name="is_last_one"
+                type="checkbox"
+                checked={isLastOne}
+                onChange={(e) => setIsLastOne(e.target.checked)}
+              />
               라스트원 상품
             </label>
             <div>
@@ -347,11 +358,13 @@ function ProductCreateModal({
               <input
                 name="quantity"
                 type="number"
-                min={1}
-                max={50}
-                defaultValue={1}
-                required
-                style={inputStyle}
+                min={isLastOne ? 0 : 1}
+                max={isLastOne ? 0 : 50}
+                value={isLastOne ? 0 : undefined}
+                defaultValue={isLastOne ? 0 : 1}
+                disabled={isLastOne}
+                required={!isLastOne}
+                style={{ ...inputStyle, opacity: isLastOne ? 0.5 : 1 }}
               />
             </div>
             <div>
