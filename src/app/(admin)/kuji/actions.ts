@@ -27,26 +27,20 @@ export async function createKujiSeriesAction(
   const thumbnailUrl = getString(formData, 'thumbnail_url')
   const coinPricePerTicket = getNumber(formData, 'coin_price_per_ticket', 100)
   const status = getString(formData, 'status') || 'closed'
-  const totalTickets = parseInt(String(formData.get('total_tickets') ?? ''), 10)
 
   if (!name) {
     return { error: '시리즈명을 입력해 주세요.' }
   }
 
-  if (!Number.isFinite(totalTickets) || totalTickets < 1) {
-    return { error: '총 티켓 수는 1 이상이어야 합니다.' }
-  }
-
   const adminClient = createAdminClient()
-
   const insertPayload = {
     name,
     description: description || null,
     thumbnail_url: thumbnailUrl || null,
     coin_price_per_ticket: coinPricePerTicket,
     status,
-    total_tickets: totalTickets,
-    remaining_tickets: totalTickets,
+    total_tickets: 0,
+    remaining_tickets: 0,
   }
 
   const { error } = await adminClient.from('kuji_series').insert(insertPayload)

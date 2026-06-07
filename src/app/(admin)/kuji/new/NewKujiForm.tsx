@@ -89,21 +89,6 @@ export default function NewKujiForm() {
         </div>
 
         <div>
-          <label style={labelStyle}>총 티켓 수</label>
-          <input
-            name="total_tickets"
-            type="number"
-            min={1}
-            defaultValue={50}
-            required
-            style={inputStyle}
-          />
-          <p style={{ color: '#6B7280', fontSize: 12, margin: '6px 0 0' }}>
-            티켓 수는 나중에 상품 등록 후 상세 페이지에서 실제 티켓을 생성해야 해요
-          </p>
-        </div>
-
-        <div>
           <label style={labelStyle}>상태</label>
           <select name="status" defaultValue="closed" style={inputStyle}>
             <option value="active">active</option>
