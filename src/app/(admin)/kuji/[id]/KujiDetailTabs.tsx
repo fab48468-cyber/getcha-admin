@@ -328,12 +328,12 @@ function ProductCreateModal({
                 name="grade"
                 type="text"
                 required
-                placeholder="예: A, B, last_one, 특상 등"
+                placeholder="예: A, B, LAST_ONE, 특상 등"
                 defaultValue=""
-                style={inputStyle}
+                style={{ ...inputStyle, textTransform: 'uppercase' }}
               />
               <p style={{ color: '#6B7280', fontSize: 12, margin: '6px 0 0' }}>
-                등급명을 자유롭게 입력하세요 (예: A, B, C, last_one)
+                등급명을 자유롭게 입력하세요 (예: A, B, C, LAST_ONE)
               </p>
             </div>
             <label

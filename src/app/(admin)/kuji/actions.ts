@@ -100,7 +100,7 @@ export async function createKujiProductAction(
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const imageUrl = getString(formData, 'image_url')
-  const grade = getString(formData, 'grade')
+  const grade = getString(formData, 'grade').toUpperCase()
   const isLastOne = formData.get('is_last_one') === 'on'
   const displayOrder = getNumber(formData, 'display_order', 0)
 
@@ -171,7 +171,9 @@ export async function createKujiTicketsAction(
   const lastOneId = series.last_one_product_id
   const normalProducts = (products ?? []).filter((p) => {
     const isLastOne =
-      p.id === lastOneId || p.is_last_one === true || p.grade === 'last_one'
+      p.id === lastOneId ||
+      p.is_last_one === true ||
+      (p.grade ?? '').toUpperCase() === 'LAST_ONE'
     return !isLastOne
   })
   const productIds = normalProducts.map((product) => product.id as string)
