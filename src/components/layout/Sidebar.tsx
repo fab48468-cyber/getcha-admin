@@ -67,8 +67,11 @@ export function Sidebar({ email, role }: SidebarProps) {
     >
       <div style={{ padding: 20 }}>
         <div style={{ lineHeight: 1.2 }}>
-          <span style={{ color: '#8CC63F', fontWeight: 900, fontSize: 18 }}>
-            GETCHA
+          <span style={{ fontWeight: 900, fontSize: 18 }}>
+            <span style={{ color: '#7EC845' }}>G</span>
+            <span style={{ color: '#FFFFFF' }}>E-</span>
+            <span style={{ color: '#8B5CF6' }}>C</span>
+            <span style={{ color: '#FFFFFF' }}>HA</span>
           </span>
           <span style={{ color: '#FFFFFF', fontWeight: 900, fontSize: 18 }}>
             {' '}
