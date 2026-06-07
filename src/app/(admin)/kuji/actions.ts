@@ -109,7 +109,6 @@ export async function createKujiProductAction(
   const grade = getString(formData, 'grade')
   const isLastOne = formData.get('is_last_one') === 'on'
   const displayOrder = getNumber(formData, 'display_order', 0)
-  const quantity = parseInt(String(formData.get('quantity') ?? ''), 10)
 
   if (!name) {
     return { error: '상품명을 입력해 주세요.' }
@@ -119,19 +118,8 @@ export async function createKujiProductAction(
     return { error: '등급을 입력해 주세요.' }
   }
 
-  if (!Number.isFinite(quantity) || quantity < 0) {
-    return { error: '수량은 0 이상이어야 합니다.' }
-  }
-  if (!isLastOne && quantity < 1) {
-    return { error: '일반 상품의 수량은 1 이상이어야 합니다.' }
-  }
-
-  if (quantity > 50) {
-    return { error: '수량은 최대 50까지 입력할 수 있습니다.' }
-  }
-
-  const insertQuantity = isLastOne ? 1 : quantity
-  const rows = Array.from({ length: insertQuantity }, () => ({
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.from('kuji_products').insert({
     series_id: seriesId,
     name,
     description: description || null,
@@ -139,10 +127,7 @@ export async function createKujiProductAction(
     grade,
     is_last_one: isLastOne,
     display_order: displayOrder,
-  }))
-
-  const adminClient = createAdminClient()
-  const { error } = await adminClient.from('kuji_products').insert(rows)
+  })
 
   if (error) {
     return { error: error.message }
@@ -151,7 +136,7 @@ export async function createKujiProductAction(
   revalidatePath(`/kuji/${seriesId}`)
   return {
     error: '',
-    success: `${quantity.toLocaleString()}개 상품이 추가되었습니다.`,
+    success: '상품이 추가되었습니다.',
   }
 }
 
