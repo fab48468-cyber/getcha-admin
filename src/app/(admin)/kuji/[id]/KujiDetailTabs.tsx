@@ -355,17 +355,27 @@ function ProductCreateModal({
             </label>
             <div>
               <label style={labelStyle}>수량</label>
-              <input
-                name="quantity"
-                type="number"
-                min={isLastOne ? 0 : 1}
-                max={isLastOne ? 0 : 50}
-                value={isLastOne ? 0 : undefined}
-                defaultValue={isLastOne ? 0 : 1}
-                disabled={isLastOne}
-                required={!isLastOne}
-                style={{ ...inputStyle, opacity: isLastOne ? 0.5 : 1 }}
-              />
+              {isLastOne ? (
+                <>
+                  <input name="quantity" type="hidden" value={0} />
+                  <input
+                    type="number"
+                    value={0}
+                    disabled
+                    style={{ ...inputStyle, opacity: 0.5 }}
+                  />
+                </>
+              ) : (
+                <input
+                  name="quantity"
+                  type="number"
+                  min={1}
+                  max={50}
+                  defaultValue={1}
+                  required
+                  style={inputStyle}
+                />
+              )}
             </div>
             <div>
               <label style={labelStyle}>노출 순서</label>
