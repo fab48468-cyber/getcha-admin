@@ -13,6 +13,14 @@ function getString(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
 }
 
+async function requireSuperAdmin() {
+  const admin = await getAdminUser()
+  if (!admin || admin.role !== 'super_admin') {
+    return null
+  }
+  return admin
+}
+
 async function insertAdminAction({
   actionType,
   targetUserId,
@@ -43,9 +51,9 @@ export async function removeUserPenaltyAction(
   void _prevState
   void _formData
 
-  const admin = await getAdminUser()
+  const admin = await requireSuperAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '권한이 없습니다.' }
   }
 
   const adminClient = createAdminClient()
@@ -89,9 +97,9 @@ export async function updateUserStatusAction(
     return { error: '정지 사유를 입력해 주세요.' }
   }
 
-  const admin = await getAdminUser()
+  const admin = await requireSuperAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '권한이 없습니다.' }
   }
 
   const isActivating = nextStatus === 'active'

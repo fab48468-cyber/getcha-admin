@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getAdminUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -22,6 +23,11 @@ export async function createKujiSeriesAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const thumbnailUrl = getString(formData, 'thumbnail_url')
@@ -58,6 +64,11 @@ export async function updateKujiSeriesAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const thumbnailUrl = getString(formData, 'thumbnail_url')
@@ -97,6 +108,11 @@ export async function createKujiProductAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const imageUrl = getString(formData, 'image_url')
@@ -139,6 +155,11 @@ export async function createKujiTicketsAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const adminClient = createAdminClient()
 
   const [{ data: series }, { data: products }, { data: latestTickets }] =
@@ -227,6 +248,11 @@ export async function createKujiTicketsAction(
 }
 
 export async function deleteKujiSeriesAction(seriesId: string) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const adminClient = createAdminClient()
 
   // 1. 판매 이력 확인 — 있으면 삭제 거부

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getAdminUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -22,6 +23,11 @@ export async function createGachaSeriesAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const thumbnailUrl = getString(formData, 'thumbnail_url')
@@ -56,6 +62,11 @@ export async function updateGachaSeriesAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const thumbnailUrl = getString(formData, 'thumbnail_url')
@@ -95,6 +106,11 @@ export async function createGachaProductAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const name = getString(formData, 'name')
   const description = getString(formData, 'description')
   const imageUrl = getString(formData, 'image_url')
@@ -129,6 +145,11 @@ export async function addGachaInventoryAction(
   _prevState: ActionState,
   formData: FormData
 ) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const quantity = getNumber(formData, 'quantity', 0)
 
   if (quantity < 1) {
@@ -154,6 +175,11 @@ export async function addGachaInventoryAction(
 }
 
 export async function deleteGachaSeriesAction(seriesId: string) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
   const adminClient = createAdminClient()
   const { error } = await adminClient
     .from('gacha_series')
