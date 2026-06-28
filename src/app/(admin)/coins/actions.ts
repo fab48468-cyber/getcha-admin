@@ -96,73 +96,44 @@ export async function grantRevokeAction(
     return { success: false, error: '유효하지 않은 처리 유형입니다.' }
   }
 
-  const adminClient = createAdminClient()
-  const { data: userData, error: userError } = await adminClient
-    .from('users')
-    .select('id, coin_balance, token_balance')
-    .eq('id', userId)
-    .single()
-
-  if (userError || !userData) {
-    return { success: false, error: '유저를 찾을 수 없습니다.' }
-  }
-
   const isCoin = type.startsWith('coin_')
   const isGrant = type.endsWith('_grant')
-  const balanceField = isCoin ? 'coin_balance' : 'token_balance'
-  const currentBalance = (userData[balanceField] as number | null) ?? 0
-  const nextBalance = isGrant ? currentBalance + amount : currentBalance - amount
+  const field = isCoin ? 'coin' : 'token'
+  const delta = isGrant ? amount : -amount
 
-  if (!isGrant && nextBalance < 0) {
-    return {
-      success: false,
-      error: `잔액이 부족합니다. (현재 ${currentBalance.toLocaleString()})`,
-    }
-  }
-
-  const { error: updateError } = await adminClient
-    .from('users')
-    .update({ [balanceField]: nextBalance })
-    .eq('id', userId)
-
-  if (updateError) {
-    return { success: false, error: updateError.message }
-  }
-
-  const transactionTable = isCoin ? 'coin_transactions' : 'token_transactions'
-  const txAmount = isGrant ? amount : -amount
-  const transactionType = isGrant ? 'admin_grant' : 'admin_revoke'
-
-  const { data: txData, error: txError } = await adminClient
-    .from(transactionTable)
-    .insert({
-      user_id: userId,
-      amount: txAmount,
-      transaction_type: transactionType,
-      description: trimmedReason,
-    })
-    .select('id')
-    .single()
-
-  if (txError || !txData) {
-    await adminClient
-      .from('users')
-      .update({ [balanceField]: currentBalance })
-      .eq('id', userId)
-    return { success: false, error: txError?.message ?? '거래 내역 저장에 실패했습니다.' }
-  }
-
-  const { error: logError } = await adminClient.from('admin_actions').insert({
-    action_type: type,
-    target_user_id: userId,
-    admin_user_id: admin.id,
-    target_type: transactionTable,
-    target_id: txData.id,
-    details: { amount, reason: trimmedReason },
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient.rpc('admin_adjust_balance', {
+    p_user_id: userId,
+    p_field: field,
+    p_delta: delta,
+    p_reason: trimmedReason,
+    p_admin_user_id: admin.id,
+    p_action_type: type,
   })
 
-  if (logError) {
-    return { success: false, error: logError.message }
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  const result = (data ?? {}) as {
+    success: boolean
+    reason?: string
+    new_balance?: number
+    transaction_id?: string
+  }
+
+  if (!result.success) {
+    const reasonMap: Record<string, string> = {
+      insufficient_balance: '잔액이 부족합니다.',
+      user_not_found: '유저를 찾을 수 없습니다.',
+      invalid_field: '유효하지 않은 재화 유형입니다.',
+      invalid_amount: '수량이 올바르지 않습니다.',
+      invalid_reason: '사유를 입력해 주세요.',
+    }
+    return {
+      success: false,
+      error: reasonMap[result.reason ?? ''] ?? '처리에 실패했습니다.',
+    }
   }
 
   revalidatePath('/coins')
