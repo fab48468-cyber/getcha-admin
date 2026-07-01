@@ -116,25 +116,64 @@ export async function createGachaProductAction(
   const imageUrl = getString(formData, 'image_url')
   const grade = getString(formData, 'grade') || 'A'
   const displayOrder = getNumber(formData, 'display_order', 0)
+  const initialStock = getNumber(formData, 'initial_stock', 0)
 
   if (!name) {
     return { error: '상품명을 입력해 주세요.' }
   }
 
+  if (name.length > 100) {
+    return { error: '상품명은 100자 이내로 입력해 주세요.' }
+  }
+
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('gacha_products').insert({
-    series_id: seriesId,
-    name,
-    description: description || null,
-    image_url: imageUrl || null,
-    grade,
-    display_order: displayOrder,
-  })
+  const { data: inserted, error } = await adminClient
+    .from('gacha_products')
+    .insert({
+      series_id: seriesId,
+      name,
+      description: description || null,
+      image_url: imageUrl || null,
+      grade,
+      display_order: displayOrder,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     return { error: error.message }
   }
 
+  // 초기 재고 수량이 입력된 경우에만 재고 생성 (선택)
+  if (initialStock > 0 && inserted?.id) {
+    const rows = Array.from({ length: initialStock }, () => ({
+      series_id: seriesId,
+      product_id: inserted.id,
+      status: 'available',
+    }))
+    const { error: stockError } = await adminClient
+      .from('gacha_inventory')
+      .insert(rows)
+
+    if (stockError) {
+      // 상품은 이미 생성됨. 재고만 실패 → 상품 살리고 경고 반환.
+      revalidatePath('/gacha')
+      revalidatePath(`/gacha/${seriesId}`)
+      return {
+        error: '',
+        success: `상품은 추가됐으나 재고 생성에 실패했습니다(${stockError.message}). 재고 탭에서 수동으로 추가해 주세요.`,
+      }
+    }
+
+    revalidatePath('/gacha')
+    revalidatePath(`/gacha/${seriesId}`)
+    return {
+      error: '',
+      success: `상품이 추가되고 재고 ${initialStock.toLocaleString()}개가 생성되었습니다.`,
+    }
+  }
+
+  revalidatePath('/gacha')
   revalidatePath(`/gacha/${seriesId}`)
   return { error: '', success: '상품이 추가되었습니다.' }
 }
