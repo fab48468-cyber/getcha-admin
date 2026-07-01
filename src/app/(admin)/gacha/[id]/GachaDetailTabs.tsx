@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import ImageCropUpload from '@/components/ImageCropUpload'
 import {
   addGachaInventoryAction,
@@ -205,6 +205,21 @@ function ProductCreateModal({
     initialActionState
   )
   const [imageUrl, setImageUrl] = useState('')
+  const [nameLen, setNameLen] = useState(0)
+  const [uploaderKey, setUploaderKey] = useState(0)
+  const formRef = useRef<HTMLFormElement>(null)
+  const prevSuccessRef = useRef<string | undefined>(undefined)
+
+  // 저장 성공 시 폼을 비워 연속 등록이 가능하게 함 (모달은 열린 상태 유지)
+  useEffect(() => {
+    if (state?.success && state.success !== prevSuccessRef.current) {
+      prevSuccessRef.current = state.success
+      formRef.current?.reset()
+      setImageUrl('')
+      setNameLen(0)
+      setUploaderKey((k) => k + 1) // ImageCropUpload 강제 리마운트 → 이미지 초기화
+    }
+  }, [state?.success])
 
   return (
     <div
@@ -226,6 +241,8 @@ function ProductCreateModal({
           borderRadius: 12,
           border: '1px solid #E0DDD8',
           padding: 20,
+          maxHeight: '90vh',
+          overflowY: 'auto',
         }}
       >
         <div
@@ -254,17 +271,34 @@ function ProductCreateModal({
           </button>
         </div>
 
-        <form action={formAction}>
+        <form ref={formRef} action={formAction}>
           <ActionMessage error={state?.error} success={state?.success} />
 
           <div style={{ display: 'grid', gap: 14 }}>
             <div>
               <label style={labelStyle}>상품명</label>
-              <input name="name" required style={inputStyle} />
+              <input
+                name="name"
+                required
+                maxLength={100}
+                style={inputStyle}
+                onChange={(e) => setNameLen(e.target.value.length)}
+              />
+              <p
+                style={{
+                  color: nameLen >= 100 ? '#DC2626' : '#9CA3AF',
+                  fontSize: 12,
+                  margin: '4px 0 0',
+                  textAlign: 'right',
+                }}
+              >
+                {nameLen} / 100
+              </p>
             </div>
             <div>
               <label style={labelStyle}>이미지</label>
               <ImageCropUpload
+                key={uploaderKey}
                 onUploaded={(url) => setImageUrl(url)}
                 uploadAction={uploadGachaImageAction}
                 aspect={1}
@@ -285,6 +319,20 @@ function ProductCreateModal({
             <div>
               <label style={labelStyle}>노출 순서</label>
               <input name="display_order" type="number" defaultValue={0} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>초기 재고 수량 (선택)</label>
+              <input
+                name="initial_stock"
+                type="number"
+                min={0}
+                defaultValue={0}
+                placeholder="0 = 재고 없이 상품만 생성"
+                style={inputStyle}
+              />
+              <p style={{ color: '#9CA3AF', fontSize: 12, margin: '4px 0 0' }}>
+                수량을 넣으면 상품 저장과 동시에 재고가 생성됩니다. 비우면 재고 탭에서 나중에 추가할 수 있습니다.
+              </p>
             </div>
           </div>
 
@@ -307,6 +355,10 @@ function ProductCreateModal({
           >
             {isPending ? '저장 중...' : '상품 저장'}
           </button>
+
+          <p style={{ color: '#9CA3AF', fontSize: 12, margin: '10px 0 0', textAlign: 'center' }}>
+            저장하면 폼이 비워져 계속 등록할 수 있습니다. 완료되면 위 × 로 닫으세요.
+          </p>
         </form>
       </div>
     </div>
