@@ -9,6 +9,7 @@ import {
   deleteKujiSeriesAction,
 } from '../actions'
 import { uploadKujiImageAction } from './uploadAction'
+import { deleteKujiProductAction } from './deleteProductAction'
 
 type Series = {
   id: string
@@ -170,7 +171,6 @@ function SeriesEditForm({
           <ImageCropUpload
             onUploaded={(url) => setThumbUrl(url)}
             uploadAction={uploadKujiImageAction}
-            aspect={1}
             maxSize={800}
           />
           <input name="thumbnail_url" type="hidden" value={thumbUrl} />
@@ -317,7 +317,6 @@ function ProductCreateModal({
               <ImageCropUpload
                 onUploaded={(url) => setImageUrl(url)}
                 uploadAction={uploadKujiImageAction}
-                aspect={1}
                 maxSize={800}
               />
               <input name="image_url" type="hidden" value={imageUrl} />
@@ -385,7 +384,29 @@ function ProductCreateModal({
   )
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({
+  product,
+  seriesId,
+}: {
+  product: Product
+  seriesId: string
+}) {
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    const confirmed = window.confirm(
+      `정말 삭제하시겠습니까?\n\n${product.name}\n되돌릴 수 없습니다.`
+    )
+    if (!confirmed) return
+
+    setDeleting(true)
+    const result = await deleteKujiProductAction(seriesId, product.id)
+    setDeleting(false)
+    if (result.error) {
+      alert(result.error)
+    }
+  }
+
   return (
     <div
       style={{
@@ -395,6 +416,7 @@ function ProductCard({ product }: { product: Product }) {
         padding: 16,
         display: 'flex',
         gap: 14,
+        alignItems: 'flex-start',
       }}
     >
       {product.image_url ? (
@@ -446,6 +468,26 @@ function ProductCard({ product }: { product: Product }) {
           </p>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={deleting}
+        style={{
+          backgroundColor: '#EF4444',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 8,
+          padding: '6px 10px',
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: deleting ? 'not-allowed' : 'pointer',
+          opacity: deleting ? 0.6 : 1,
+          flexShrink: 0,
+        }}
+      >
+        {deleting ? '삭제 중...' : '삭제'}
+      </button>
     </div>
   )
 }
@@ -719,7 +761,11 @@ export default function KujiDetailTabs({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                seriesId={series.id}
+              />
             ))}
           </div>
 
