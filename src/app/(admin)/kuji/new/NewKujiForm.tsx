@@ -71,7 +71,6 @@ export default function NewKujiForm() {
           <ImageCropUpload
             onUploaded={(url) => setThumbUrl(url)}
             uploadAction={uploadKujiThumbnailAction}
-            aspect={1}
             maxSize={800}
           />
           <input name="thumbnail_url" type="hidden" value={thumbUrl} />

@@ -11,15 +11,27 @@ interface ImageCropUploadProps {
   onUploaded: (url: string) => void
   // 실제 업로드를 수행하는 Server Action
   uploadAction: UploadAction
-  // 크롭 비율 (기본 1 = 정사각형)
+  // 크롭 비율. 미지정 시 자유비율
   aspect?: number
   // 리사이즈 최대 크기 (기본 800px)
   maxSize?: number
 }
 
-function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: number): Crop {
+function centerInitialCrop(
+  mediaWidth: number,
+  mediaHeight: number,
+  aspect?: number
+): Crop {
+  if (aspect) {
+    return centerCrop(
+      makeAspectCrop({ unit: '%', width: 90 }, aspect, mediaWidth, mediaHeight),
+      mediaWidth,
+      mediaHeight
+    )
+  }
+  // 자유비율: 비율 강제 없이 중앙 90% 박스로 시작
   return centerCrop(
-    makeAspectCrop({ unit: '%', width: 90 }, aspect, mediaWidth, mediaHeight),
+    { unit: '%', x: 0, y: 0, width: 90, height: 90 },
     mediaWidth,
     mediaHeight
   )
@@ -28,7 +40,7 @@ function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: numbe
 export default function ImageCropUpload({
   onUploaded,
   uploadAction,
-  aspect = 1,
+  aspect,
   maxSize = 800,
 }: ImageCropUploadProps) {
   const [imgSrc, setImgSrc] = useState('')
@@ -51,7 +63,7 @@ export default function ImageCropUpload({
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget
-    setCrop(centerAspectCrop(width, height, aspect))
+    setCrop(centerInitialCrop(width, height, aspect))
   }
 
   const getCroppedBlob = async (): Promise<Blob | null> => {
@@ -146,6 +158,14 @@ export default function ImageCropUpload({
               />
             </ReactCrop>
           </div>
+          {completedCrop && imgRef.current ? (
+            <span style={{ fontSize: 12, color: '#6B6B6B', fontWeight: 700 }}>
+              크롭 크기: {Math.round(completedCrop.width * (imgRef.current.naturalWidth / imgRef.current.width))}
+              {' × '}
+              {Math.round(completedCrop.height * (imgRef.current.naturalHeight / imgRef.current.height))}
+              px
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={handleUpload}
@@ -174,7 +194,14 @@ export default function ImageCropUpload({
           <img
             src={uploadedUrl}
             alt="업로드 완료"
-            style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 10, border: '1px solid #E0DDD8' }}
+            style={{
+              maxWidth: 160,
+              maxHeight: 120,
+              objectFit: 'contain',
+              borderRadius: 10,
+              border: '1px solid #E0DDD8',
+              backgroundColor: '#F5F3F0',
+            }}
           />
           <span style={{ fontSize: 12, color: '#5B8B1E', fontWeight: 700 }}>
             ✓ 업로드 완료

@@ -71,7 +71,6 @@ export default function NewGachaForm() {
           <ImageCropUpload
             onUploaded={(url) => setThumbUrl(url)}
             uploadAction={uploadGachaThumbnailAction}
-            aspect={1}
             maxSize={800}
           />
           <input name="thumbnail_url" type="hidden" value={thumbUrl} />
