@@ -152,6 +152,9 @@ export default function BannerForm({
       return { error: '이미지를 선택해 주세요.' }
     }
 
+    formData.set('starts_at', startsAt ? new Date(startsAt).toISOString() : '')
+    formData.set('ends_at', endsAt ? new Date(endsAt).toISOString() : '')
+
     const result = await serverAction(prevState, formData)
     return result ?? { error: '' }
   }
