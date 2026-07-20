@@ -9,9 +9,6 @@ import {
   extractBannerStoragePath,
   isBannerLinkType,
   type BannerLinkType,
-  type GachaSeriesPickerRow,
-  type HomeBannerRow,
-  type KujiSeriesPickerRow,
 } from './banner-utils'
 
 type ActionState = {
@@ -126,67 +123,6 @@ async function removeBannerImageBestEffort(
   }
 }
 
-export async function listHomeBannersAction(): Promise<{
-  data: HomeBannerRow[]
-  error?: string
-}> {
-  const admin = await getAdminUser()
-  if (!admin) {
-    return { data: [], error: '관리자 인증이 필요합니다.' }
-  }
-
-  const adminClient = createAdminClient()
-  const { data, error } = await adminClient
-    .from('home_banners')
-    .select(
-      'id, title, image_url, link_type, link_value, display_order, is_active, starts_at, ends_at, created_at, updated_at'
-    )
-    .order('display_order', { ascending: true })
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    return { data: [], error: error.message }
-  }
-
-  return { data: (data ?? []) as HomeBannerRow[] }
-}
-
-export async function fetchBannerPickerDataAction(): Promise<{
-  gacha: GachaSeriesPickerRow[]
-  kuji: KujiSeriesPickerRow[]
-  error?: string
-}> {
-  const admin = await getAdminUser()
-  if (!admin) {
-    return { gacha: [], kuji: [], error: '관리자 인증이 필요합니다.' }
-  }
-
-  const adminClient = createAdminClient()
-
-  const [gachaResult, kujiResult] = await Promise.all([
-    adminClient
-      .from('gacha_series')
-      .select('id, name, thumbnail_url, status')
-      .order('created_at', { ascending: false }),
-    adminClient
-      .from('kuji_series')
-      .select('id, name, thumbnail_url, status, remaining_tickets')
-      .order('created_at', { ascending: false }),
-  ])
-
-  if (gachaResult.error) {
-    return { gacha: [], kuji: [], error: gachaResult.error.message }
-  }
-  if (kujiResult.error) {
-    return { gacha: [], kuji: [], error: kujiResult.error.message }
-  }
-
-  return {
-    gacha: (gachaResult.data ?? []) as GachaSeriesPickerRow[],
-    kuji: (kujiResult.data ?? []) as KujiSeriesPickerRow[],
-  }
-}
-
 export async function createBannerAction(
   _prevState: ActionState,
   formData: FormData
@@ -278,8 +214,7 @@ export async function updateBannerAction(
   }
 
   revalidatePath('/banners')
-  revalidatePath(`/banners/${bannerId}`)
-  return { error: '', success: '저장되었습니다.' }
+  redirect('/banners')
 }
 
 export async function toggleBannerActiveAction(

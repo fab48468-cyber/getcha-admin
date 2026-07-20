@@ -89,6 +89,7 @@ export default function BannerForm({
       : updateBannerAction.bind(null, bannerId!)
 
   const croppedBlobRef = useRef<Blob | null>(null)
+  const uploadedUrlRef = useRef<string | null>(null)
   const [linkType, setLinkType] = useState<BannerLinkType>(
     initial?.link_type ?? 'none'
   )
@@ -135,7 +136,7 @@ export default function BannerForm({
   ): Promise<{ error: string; success?: string }> {
     setClientError('')
 
-    if (croppedBlobRef.current) {
+    if (croppedBlobRef.current && !uploadedUrlRef.current) {
       setIsUploading(true)
       try {
         const uploadFd = new FormData()
@@ -144,14 +145,15 @@ export default function BannerForm({
         if (uploaded.error || !uploaded.url) {
           return { error: uploaded.error ?? '이미지 업로드에 실패했습니다.' }
         }
-        formData.set('image_url', uploaded.url)
+        uploadedUrlRef.current = uploaded.url
       } finally {
         setIsUploading(false)
       }
-    } else if (mode === 'create') {
+    } else if (mode === 'create' && !uploadedUrlRef.current) {
       return { error: '이미지를 선택해 주세요.' }
     }
 
+    formData.set('image_url', uploadedUrlRef.current ?? '')
     formData.set('starts_at', startsAt ? new Date(startsAt).toISOString() : '')
     formData.set('ends_at', endsAt ? new Date(endsAt).toISOString() : '')
 
@@ -203,23 +205,6 @@ export default function BannerForm({
           </div>
         )}
 
-        {state?.success && (
-          <div
-            style={{
-              backgroundColor: '#EEFBD0',
-              color: '#5B8B1E',
-              border: '1px solid #BBF7D0',
-              borderRadius: 10,
-              padding: 12,
-              fontSize: 14,
-              fontWeight: 700,
-              marginBottom: 16,
-            }}
-          >
-            {state.success}
-          </div>
-        )}
-
         <input
           type="hidden"
           name="previous_image_url"
@@ -244,6 +229,7 @@ export default function BannerForm({
             existingUrl={initial?.image_url}
             onCroppedChange={(blob) => {
               croppedBlobRef.current = blob
+              uploadedUrlRef.current = null
             }}
           />
 
