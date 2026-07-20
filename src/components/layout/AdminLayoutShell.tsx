@@ -5,6 +5,7 @@ import { Header } from './Header'
 
 const PAGE_TITLES: Record<string, string> = {
   '/': '대시보드',
+  '/banners': '홈 배너',
   '/gacha': '가챠 관리',
   '/kuji': '쿠지 관리',
   '/shipments': '배송 관리',

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 
 const BASE_NAV_ITEMS = [
   { icon: '🏠', label: '대시보드', href: '/' },
+  { icon: '🖼️', label: '홈 배너', href: '/banners' },
   { icon: '📊', label: '매출 통계', href: '/stats' },
   { icon: '🎰', label: '가챠 관리', href: '/gacha' },
   { icon: '🎫', label: '쿠지 관리', href: '/kuji' },
