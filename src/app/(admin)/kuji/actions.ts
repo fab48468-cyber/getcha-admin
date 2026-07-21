@@ -1,5 +1,6 @@
 'use server'
 
+import { randomInt } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/auth'
@@ -162,24 +163,31 @@ export async function createKujiTicketsAction(
 
   const adminClient = createAdminClient()
 
-  const [{ data: series }, { data: products }, { data: latestTickets }] =
-    await Promise.all([
-      adminClient
-        .from('kuji_series')
-        .select('status, total_tickets, remaining_tickets, last_one_product_id')
-        .eq('id', seriesId)
-        .single(),
-      adminClient
-        .from('kuji_products')
-        .select('id, is_last_one, grade')
-        .eq('series_id', seriesId),
-      adminClient
-        .from('kuji_tickets')
-        .select('ticket_number')
-        .eq('series_id', seriesId)
-        .order('ticket_number', { ascending: false })
-        .limit(1),
-    ])
+  const [
+    { data: series },
+    { data: products },
+    { count: existingTicketCount },
+    { count: nonAvailableTicketCount },
+  ] = await Promise.all([
+    adminClient
+      .from('kuji_series')
+      .select('status, total_tickets, remaining_tickets, last_one_product_id')
+      .eq('id', seriesId)
+      .single(),
+    adminClient
+      .from('kuji_products')
+      .select('id, is_last_one, grade')
+      .eq('series_id', seriesId),
+    adminClient
+      .from('kuji_tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('series_id', seriesId),
+    adminClient
+      .from('kuji_tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('series_id', seriesId)
+      .neq('status', 'available'),
+  ])
 
   if (!series) {
     return { error: '쿠지 시리즈를 찾을 수 없습니다.' }
@@ -187,6 +195,12 @@ export async function createKujiTicketsAction(
 
   if (series.status !== 'closed') {
     return { error: '티켓 생성은 종료 상태(closed)에서만 가능합니다.' }
+  }
+
+  if ((nonAvailableTicketCount ?? 0) > 0) {
+    return {
+      error: '이미 판매되었거나 선택 중인 티켓이 있어 재생성할 수 없습니다.',
+    }
   }
 
   const lastOneId = series.last_one_product_id
@@ -204,7 +218,6 @@ export async function createKujiTicketsAction(
     ticket_number: number
     status: 'available'
   }[] = []
-  let nextTicketNumber = Number(latestTickets?.[0]?.ticket_number ?? 0) + 1
 
   for (const productId of productIds) {
     const quantity = getNumber(formData, `quantity_${productId}`, 0)
@@ -212,15 +225,35 @@ export async function createKujiTicketsAction(
       rows.push({
         series_id: seriesId,
         product_id: productId,
-        ticket_number: nextTicketNumber,
+        ticket_number: 0,
         status: 'available',
       })
-      nextTicketNumber += 1
     }
   }
 
   if (rows.length === 0) {
     return { error: '생성할 티켓 수량을 입력해 주세요.' }
+  }
+
+  // Fisher-Yates shuffle (CSPRNG)
+  for (let i = rows.length - 1; i > 0; i -= 1) {
+    const j = randomInt(0, i + 1)
+    ;[rows[i], rows[j]] = [rows[j], rows[i]]
+  }
+
+  for (let i = 0; i < rows.length; i += 1) {
+    rows[i].ticket_number = i + 1
+  }
+
+  if ((existingTicketCount ?? 0) > 0) {
+    const { error: deleteError } = await adminClient
+      .from('kuji_tickets')
+      .delete()
+      .eq('series_id', seriesId)
+
+    if (deleteError) {
+      return { error: deleteError.message }
+    }
   }
 
   const { error: insertError } = await adminClient.from('kuji_tickets').insert(rows)
@@ -232,8 +265,8 @@ export async function createKujiTicketsAction(
   const { error: updateError } = await adminClient
     .from('kuji_series')
     .update({
-      total_tickets: Number(series.total_tickets ?? 0) + rows.length,
-      remaining_tickets: Number(series.remaining_tickets ?? 0) + rows.length,
+      total_tickets: rows.length,
+      remaining_tickets: rows.length,
       updated_at: new Date().toISOString(),
     })
     .eq('id', seriesId)
