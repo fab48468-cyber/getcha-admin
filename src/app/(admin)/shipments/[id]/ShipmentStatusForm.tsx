@@ -54,13 +54,25 @@ const STATUS_STYLES: Record<ShipmentStatus, { label: string; color: string }> = 
   on_hold: { label: '보류', color: '#F97316' },
 }
 
-const NORMAL_STATUS_OPTIONS = [
+const STATUS_OPTIONS: { value: ShipmentStatus; label: string }[] = [
   { value: 'requested', label: '배송신청' },
   { value: 'preparing', label: '준비중' },
   { value: 'packed', label: '포장완료' },
   { value: 'shipped', label: '배송중' },
   { value: 'delivered', label: '배송완료' },
-] as const
+  { value: 'on_hold', label: '보류' },
+  { value: 'cancelled', label: '취소' },
+]
+
+const ALLOWED_TRANSITIONS: Record<ShipmentStatus, ShipmentStatus[]> = {
+  requested: ['preparing', 'on_hold', 'cancelled'],
+  preparing: ['packed', 'on_hold', 'cancelled'],
+  packed: ['shipped', 'preparing', 'on_hold'],
+  shipped: ['delivered'],
+  on_hold: ['requested', 'preparing', 'cancelled'],
+  delivered: [],
+  cancelled: [],
+}
 
 const initialActionState = { error: '', success: '' }
 
@@ -103,6 +115,14 @@ function getInitialCourierSelect(courierCompany: string | null) {
     return CUSTOM_COURIER_OPTION
   }
   return COURIER_OPTIONS[0]
+}
+
+function getSelectableStatuses(currentStatus: ShipmentStatus) {
+  const allowed = new Set<ShipmentStatus>([
+    currentStatus,
+    ...(ALLOWED_TRANSITIONS[currentStatus] ?? []),
+  ])
+  return STATUS_OPTIONS.filter((option) => allowed.has(option.value))
 }
 
 function StatusBadge({ status }: { status: ShipmentStatus }) {
@@ -175,6 +195,19 @@ export default function ShipmentStatusForm({
     shipment.tracking_number ?? ''
   )
   const [trackingUrl, setTrackingUrl] = useState(shipment.tracking_url ?? '')
+  const [selectedStatus, setSelectedStatus] = useState<ShipmentStatus>(
+    shipment.status
+  )
+
+  const isTerminal =
+    shipment.status === 'delivered' || shipment.status === 'cancelled'
+  const allowedTransitions = ALLOWED_TRANSITIONS[shipment.status] ?? []
+  const canHold = allowedTransitions.includes('on_hold')
+  const canCancel = allowedTransitions.includes('cancelled')
+  const selectableStatuses = useMemo(
+    () => getSelectableStatuses(shipment.status),
+    [shipment.status]
+  )
 
   const resolvedCourier = useMemo(() => {
     if (courierSelect === CUSTOM_COURIER_OPTION) {
@@ -207,15 +240,39 @@ export default function ShipmentStatusForm({
     applyAutoTrackingUrl(resolvedCourier, value)
   }
 
-  const normalStatusValues = NORMAL_STATUS_OPTIONS.map((option) => option.value)
-  const defaultStatus = normalStatusValues.includes(
-    shipment.status as (typeof normalStatusValues)[number]
-  )
-    ? shipment.status
-    : 'requested'
+  function confirmCancelIfNeeded() {
+    return window.confirm(
+      '취소하면 배송비가 환불되고 상품 잠금이 해제됩니다. 되돌릴 수 없습니다.'
+    )
+  }
+
+  function handleCancelClick(event: React.MouseEvent<HTMLButtonElement>) {
+    if (!confirmCancelIfNeeded()) {
+      event.preventDefault()
+    }
+  }
+
+  function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const submitter = (event.nativeEvent as SubmitEvent)
+      .submitter as HTMLButtonElement | null
+    const actionStatus = submitter?.getAttribute('name') === 'action_status'
+      ? submitter.value
+      : null
+    const nextStatus = actionStatus || selectedStatus
+
+    if (
+      nextStatus === 'cancelled' &&
+      shipment.status !== 'cancelled' &&
+      !actionStatus
+    ) {
+      if (!confirmCancelIfNeeded()) {
+        event.preventDefault()
+      }
+    }
+  }
 
   return (
-    <form action={formAction}>
+    <form action={formAction} onSubmit={handleFormSubmit}>
       <ActionMessage error={state?.error} success={state?.success} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -225,11 +282,45 @@ export default function ShipmentStatusForm({
         <StatusBadge status={shipment.status} />
       </div>
 
+      {isTerminal && (
+        <div
+          style={{
+            backgroundColor: '#F3F4F6',
+            color: '#6B7280',
+            border: '1px solid #E5E7EB',
+            borderRadius: 10,
+            padding: 12,
+            fontSize: 14,
+            fontWeight: 800,
+            marginBottom: 16,
+          }}
+        >
+          {shipment.status === 'delivered'
+            ? '배송완료 상태에서는 상태를 변경할 수 없습니다. 송장 정보만 수정할 수 있습니다.'
+            : '취소된 배송은 상태를 변경할 수 없습니다. 송장 정보만 수정할 수 있습니다.'}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gap: 16 }}>
         <div>
           <label style={labelStyle}>상태 변경</label>
-          <select name="status" defaultValue={defaultStatus} style={inputStyle}>
-            {NORMAL_STATUS_OPTIONS.map((option) => (
+          {isTerminal && (
+            <input type="hidden" name="status" value={shipment.status} />
+          )}
+          <select
+            name={isTerminal ? undefined : 'status'}
+            value={selectedStatus}
+            onChange={(event) =>
+              setSelectedStatus(event.target.value as ShipmentStatus)
+            }
+            disabled={isTerminal}
+            style={{
+              ...inputStyle,
+              backgroundColor: isTerminal ? '#F9FAFB' : '#FFFFFF',
+              color: isTerminal ? '#9CA3AF' : '#1A1A1A',
+            }}
+          >
+            {selectableStatuses.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -333,44 +424,49 @@ export default function ShipmentStatusForm({
         >
           {isPending ? '저장 중...' : '저장'}
         </button>
-        <button
-          type="submit"
-          name="action_status"
-          value="on_hold"
-          disabled={isPending}
-          style={{
-            backgroundColor: '#FFF7ED',
-            color: '#F97316',
-            border: '1px solid #FDBA74',
-            borderRadius: 10,
-            padding: '12px 16px',
-            fontSize: 14,
-            fontWeight: 900,
-            cursor: isPending ? 'not-allowed' : 'pointer',
-            opacity: isPending ? 0.6 : 1,
-          }}
-        >
-          보류
-        </button>
-        <button
-          type="submit"
-          name="action_status"
-          value="cancelled"
-          disabled={isPending}
-          style={{
-            backgroundColor: '#FEE2E2',
-            color: '#EF4444',
-            border: '1px solid #FCA5A5',
-            borderRadius: 10,
-            padding: '12px 16px',
-            fontSize: 14,
-            fontWeight: 900,
-            cursor: isPending ? 'not-allowed' : 'pointer',
-            opacity: isPending ? 0.6 : 1,
-          }}
-        >
-          취소
-        </button>
+        {canHold && (
+          <button
+            type="submit"
+            name="action_status"
+            value="on_hold"
+            disabled={isPending}
+            style={{
+              backgroundColor: '#FFF7ED',
+              color: '#F97316',
+              border: '1px solid #FDBA74',
+              borderRadius: 10,
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 900,
+              cursor: isPending ? 'not-allowed' : 'pointer',
+              opacity: isPending ? 0.6 : 1,
+            }}
+          >
+            보류
+          </button>
+        )}
+        {canCancel && (
+          <button
+            type="submit"
+            name="action_status"
+            value="cancelled"
+            disabled={isPending}
+            onClick={handleCancelClick}
+            style={{
+              backgroundColor: '#FEE2E2',
+              color: '#EF4444',
+              border: '1px solid #FCA5A5',
+              borderRadius: 10,
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 900,
+              cursor: isPending ? 'not-allowed' : 'pointer',
+              opacity: isPending ? 0.6 : 1,
+            }}
+          >
+            취소
+          </button>
+        )}
       </div>
     </form>
   )
