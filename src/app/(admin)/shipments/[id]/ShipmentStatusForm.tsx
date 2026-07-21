@@ -30,6 +30,7 @@ const COURIER_OPTIONS = [
 ] as const
 
 const CUSTOM_COURIER_OPTION = '직접입력'
+const NO_COURIER_OPTION = ''
 
 const TRACKING_URL_BUILDERS: Record<(typeof COURIER_OPTIONS)[number], (trackingNumber: string) => string> = {
   CJ대한통운: (trackingNumber) =>
@@ -114,7 +115,7 @@ function getInitialCourierSelect(courierCompany: string | null) {
   if (courierCompany) {
     return CUSTOM_COURIER_OPTION
   }
-  return COURIER_OPTIONS[0]
+  return NO_COURIER_OPTION
 }
 
 function getSelectableStatuses(currentStatus: ShipmentStatus) {
@@ -336,6 +337,7 @@ export default function ShipmentStatusForm({
               onChange={(event) => handleCourierSelectChange(event.target.value)}
               style={inputStyle}
             >
+              <option value={NO_COURIER_OPTION}>선택 안 함</option>
               {COURIER_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
