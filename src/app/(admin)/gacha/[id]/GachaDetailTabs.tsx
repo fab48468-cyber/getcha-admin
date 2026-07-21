@@ -533,6 +533,30 @@ export default function GachaDetailTabs({
   )
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const productCount = products.length
+  const inventoryTotal = Object.values(inventoryCounts).reduce(
+    (sum, counts) => sum + (counts.total ?? 0),
+    0
+  )
+
+  async function handleDeleteSeries() {
+    const confirmed = window.confirm(
+      `상품 ${productCount}종과 재고 ${inventoryTotal.toLocaleString()}개가 함께 삭제됩니다. 되돌릴 수 없습니다.`
+    )
+    if (!confirmed) return
+
+    setDeleteError('')
+    setIsDeleting(true)
+    const result = await deleteGachaSeriesAction(series.id)
+    // 성공 시 액션 내부 redirect()가 throw되어 여기 도달 안 함.
+    if (result?.error) {
+      setDeleteError(result.error)
+    }
+    setIsDeleting(false)
+  }
 
   const tabs = [
     { key: 'series', label: '시리즈 정보 수정' },
@@ -594,6 +618,7 @@ export default function GachaDetailTabs({
             <p style={{ color: '#6B7280', fontSize: 13, margin: '0 0 14px' }}>
               시리즈를 삭제하면 관련 상품과 재고도 모두 삭제됩니다. 이 작업은 되돌릴 수 없어요.
             </p>
+            <ActionMessage error={deleteError} />
             {!showDeleteConfirm ? (
               <button
                 type="button"
@@ -618,9 +643,8 @@ export default function GachaDetailTabs({
                 </span>
                 <button
                   type="button"
-                  onClick={async () => {
-                    await deleteGachaSeriesAction(series.id)
-                  }}
+                  disabled={isDeleting}
+                  onClick={handleDeleteSeries}
                   style={{
                     backgroundColor: '#EF4444',
                     color: '#fff',
@@ -629,14 +653,18 @@ export default function GachaDetailTabs({
                     padding: '8px 14px',
                     fontSize: 13,
                     fontWeight: 800,
-                    cursor: 'pointer',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    opacity: isDeleting ? 0.6 : 1,
                   }}
                 >
-                  삭제 확인
+                  {isDeleting ? '삭제 중...' : '삭제 확인'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowDeleteConfirm(false)}
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setDeleteError('')
+                  }}
                   style={{
                     backgroundColor: '#fff',
                     color: '#6B7280',

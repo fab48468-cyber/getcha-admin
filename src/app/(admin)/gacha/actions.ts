@@ -220,6 +220,68 @@ export async function deleteGachaSeriesAction(seriesId: string) {
   }
 
   const adminClient = createAdminClient()
+
+  const [pulls, dex, confirmEx, exTx, sessions, inventory, products] =
+    await Promise.all([
+      adminClient
+        .from('gacha_pulls')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+      adminClient
+        .from('gacha_dex')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+      adminClient
+        .from('confirm_exchange_inventory')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+      adminClient
+        .from('exchange_transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+      adminClient
+        .from('gacha_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+      adminClient
+        .from('gacha_inventory')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+      adminClient
+        .from('gacha_products')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', seriesId),
+    ])
+
+  const checkError =
+    pulls.error ||
+    dex.error ||
+    confirmEx.error ||
+    exTx.error ||
+    sessions.error ||
+    inventory.error ||
+    products.error
+  if (checkError) {
+    return { error: checkError.message }
+  }
+
+  const blockingRefs = [
+    { label: '뽑기 이력', count: pulls.count ?? 0 },
+    { label: '도감', count: dex.count ?? 0 },
+    { label: '확정교환 재고', count: confirmEx.count ?? 0 },
+    { label: '교환거래', count: exTx.count ?? 0 },
+    { label: '세션', count: sessions.count ?? 0 },
+  ].filter((ref) => ref.count > 0)
+
+  if (blockingRefs.length > 0) {
+    const detail = blockingRefs
+      .map((ref) => `${ref.label} ${ref.count}건`)
+      .join(' · ')
+    return {
+      error: `삭제할 수 없습니다. ${detail}이 연결돼 있습니다.`,
+    }
+  }
+
   const { error } = await adminClient
     .from('gacha_series')
     .delete()
