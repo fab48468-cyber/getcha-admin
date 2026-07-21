@@ -2,120 +2,16 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import DailyPaymentChart, { type DailyPaymentPoint } from './DailyPaymentChart'
 import SeriesRevenueTabs, { type SeriesRevenueRow } from './SeriesRevenueTabs'
 
-type ChargeRow = {
-  krw_amount: number | string | null
-  completed_at: string | null
-}
-
-type PullRow = {
-  series_id: string
-  coin_used: number | string | null
-}
-
-type SeriesRow = {
-  id: string
-  name: string
-}
-
-function getTodayStartIso() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today.toISOString()
-}
-
-function getMonthStartIso() {
-  const monthStart = new Date()
-  monthStart.setDate(1)
-  monthStart.setHours(0, 0, 0, 0)
-  return monthStart.toISOString()
-}
-
-function getThirtyDaysStartIso() {
-  const start = new Date()
-  start.setDate(start.getDate() - 29)
-  start.setHours(0, 0, 0, 0)
-  return start.toISOString()
-}
-
-function toLocalDateKey(iso: string) {
-  const d = new Date(iso)
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function buildLast30DateKeys() {
-  const keys: string[] = []
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-  cursor.setDate(cursor.getDate() - 29)
-
-  for (let i = 0; i < 30; i += 1) {
-    const yyyy = cursor.getFullYear()
-    const mm = String(cursor.getMonth() + 1).padStart(2, '0')
-    const dd = String(cursor.getDate()).padStart(2, '0')
-    keys.push(`${yyyy}-${mm}-${dd}`)
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  return keys
-}
-
-function sumKrwAmount(rows: ChargeRow[]) {
-  return rows.reduce((sum, row) => sum + Number(row.krw_amount ?? 0), 0)
-}
-
-function buildDailyPaymentData(
-  charges: ChargeRow[],
-  dateKeys: string[]
-): DailyPaymentPoint[] {
-  const amountByDate = new Map<string, number>()
-
-  for (const key of dateKeys) {
-    amountByDate.set(key, 0)
-  }
-
-  for (const charge of charges) {
-    if (!charge.completed_at) continue
-    const key = toLocalDateKey(charge.completed_at)
-    if (!amountByDate.has(key)) continue
-    amountByDate.set(
-      key,
-      (amountByDate.get(key) ?? 0) + Number(charge.krw_amount ?? 0)
-    )
-  }
-
-  return dateKeys.map((date) => ({
-    date,
-    amount: amountByDate.get(date) ?? 0,
-  }))
-}
-
-function buildSeriesRevenueRows(
-  pulls: PullRow[],
-  seriesList: SeriesRow[]
-): SeriesRevenueRow[] {
-  const nameById = new Map(seriesList.map((s) => [s.id, s.name]))
-  const stats = new Map<string, { pullCount: number; totalCoins: number }>()
-
-  for (const pull of pulls) {
-    const seriesId = pull.series_id
-    const current = stats.get(seriesId) ?? { pullCount: 0, totalCoins: 0 }
-    stats.set(seriesId, {
-      pullCount: current.pullCount + 1,
-      totalCoins: current.totalCoins + Number(pull.coin_used ?? 0),
-    })
-  }
-
-  return [...stats.entries()]
-    .map(([seriesId, { pullCount, totalCoins }]) => ({
-      seriesId,
-      seriesName: nameById.get(seriesId) ?? '(삭제된 시리즈)',
-      pullCount,
-      totalCoins,
-    }))
-    .sort((a, b) => b.totalCoins - a.totalCoins)
+type AdminStatsResult = {
+  success?: boolean
+  message?: string
+  today_amount?: number
+  month_amount?: number
+  total_amount?: number
+  total_count?: number
+  daily?: DailyPaymentPoint[]
+  gacha_series?: SeriesRevenueRow[]
+  kuji_series?: SeriesRevenueRow[]
 }
 
 type StatCardProps = {
@@ -162,65 +58,16 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
 
 export default async function StatsPage() {
   const adminClient = createAdminClient()
-  const todayStartIso = getTodayStartIso()
-  const monthStartIso = getMonthStartIso()
-  const thirtyDaysStartIso = getThirtyDaysStartIso()
-  const last30DateKeys = buildLast30DateKeys()
+  const { data, error } = await adminClient.rpc('admin_get_stats', { p_days: 30 })
+  const result = data as AdminStatsResult | null
+  const loadFailed = Boolean(error || !result?.success)
 
-  const [
-    todayChargesResult,
-    monthChargesResult,
-    allChargesResult,
-    dailyChargesResult,
-    gachaPullsResult,
-    kujiPurchasesResult,
-    gachaSeriesResult,
-    kujiSeriesResult,
-  ] = await Promise.all([
-    adminClient
-      .from('coin_charges')
-      .select('krw_amount')
-      .eq('status', 'completed')
-      .gte('completed_at', todayStartIso),
-    adminClient
-      .from('coin_charges')
-      .select('krw_amount')
-      .eq('status', 'completed')
-      .gte('completed_at', monthStartIso),
-    adminClient
-      .from('coin_charges')
-      .select('krw_amount')
-      .eq('status', 'completed'),
-    adminClient
-      .from('coin_charges')
-      .select('krw_amount, completed_at')
-      .eq('status', 'completed')
-      .gte('completed_at', thirtyDaysStartIso)
-      .not('completed_at', 'is', null),
-    adminClient.from('gacha_pulls').select('series_id, coin_used'),
-    adminClient.from('kuji_purchases').select('series_id, coin_used'),
-    adminClient.from('gacha_series').select('id, name'),
-    adminClient.from('kuji_series').select('id, name'),
-  ])
-
-  const todayAmount = sumKrwAmount((todayChargesResult.data ?? []) as ChargeRow[])
-  const monthAmount = sumKrwAmount((monthChargesResult.data ?? []) as ChargeRow[])
-  const totalAmount = sumKrwAmount((allChargesResult.data ?? []) as ChargeRow[])
-
-  const dailyPaymentData = buildDailyPaymentData(
-    (dailyChargesResult.data ?? []) as ChargeRow[],
-    last30DateKeys
-  )
-
-  const gachaRows = buildSeriesRevenueRows(
-    (gachaPullsResult.data ?? []) as PullRow[],
-    (gachaSeriesResult.data ?? []) as SeriesRow[]
-  )
-
-  const kujiRows = buildSeriesRevenueRows(
-    (kujiPurchasesResult.data ?? []) as PullRow[],
-    (kujiSeriesResult.data ?? []) as SeriesRow[]
-  )
+  const todayAmount = Number(result?.today_amount ?? 0)
+  const monthAmount = Number(result?.month_amount ?? 0)
+  const totalAmount = Number(result?.total_amount ?? 0)
+  const dailyPaymentData = result?.daily ?? []
+  const gachaRows = result?.gacha_series ?? []
+  const kujiRows = result?.kuji_series ?? []
 
   const summaryCards = [
     {
@@ -255,6 +102,29 @@ export default async function StatsPage() {
       >
         매출 통계
       </h2>
+
+      {loadFailed && (
+        <div
+          style={{
+            backgroundColor: '#FEF3C7',
+            color: '#92400E',
+            border: '1px solid #FCD34D',
+            borderRadius: 10,
+            padding: 12,
+            fontSize: 14,
+            fontWeight: 800,
+            marginBottom: 16,
+          }}
+        >
+          통계를 불러오지 못했습니다.
+          {error?.message
+            ? ` (${error.message})`
+            : result?.message
+              ? ` (${result.message})`
+              : ''}{' '}
+          표시된 수치는 0으로 폴백된 상태입니다.
+        </div>
+      )}
 
       <section
         style={{
