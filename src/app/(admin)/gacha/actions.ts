@@ -213,7 +213,10 @@ export async function addGachaInventoryAction(
   return { error: '', success: `${quantity.toLocaleString()}개 추가되었습니다.` }
 }
 
-export async function deleteGachaSeriesAction(seriesId: string) {
+export async function deleteGachaSeriesAction(
+  seriesId: string,
+  confirmed = false
+) {
   const admin = await requireWriteAdmin()
   if (!admin) {
     return { error: '이 작업을 수행할 권한이 없습니다.' }
@@ -270,7 +273,6 @@ export async function deleteGachaSeriesAction(seriesId: string) {
     { label: '도감', count: dex.count ?? 0 },
     { label: '확정교환 재고', count: confirmEx.count ?? 0 },
     { label: '교환거래', count: exTx.count ?? 0 },
-    { label: '세션', count: sessions.count ?? 0 },
   ].filter((ref) => ref.count > 0)
 
   if (blockingRefs.length > 0) {
@@ -279,6 +281,29 @@ export async function deleteGachaSeriesAction(seriesId: string) {
       .join(' · ')
     return {
       error: `삭제할 수 없습니다. ${detail}이 연결돼 있습니다.`,
+    }
+  }
+
+  // CASCADE 동반 삭제 대상 — 차단하지 않고 확인 문구에만 사용
+  const cascadeParts: string[] = []
+  const productCount = products.count ?? 0
+  const inventoryCount = inventory.count ?? 0
+  const sessionCount = sessions.count ?? 0
+  if (productCount > 0) cascadeParts.push(`상품 ${productCount}종`)
+  if (inventoryCount > 0) {
+    cascadeParts.push(`재고 ${inventoryCount.toLocaleString()}개`)
+  }
+  if (sessionCount > 0) {
+    cascadeParts.push(`세션 ${sessionCount.toLocaleString()}건`)
+  }
+
+  if (!confirmed) {
+    return {
+      error: '',
+      confirmMessage:
+        cascadeParts.length > 0
+          ? `${cascadeParts.join(' · ')}이 함께 삭제됩니다. 되돌릴 수 없습니다.`
+          : '이 시리즈를 삭제합니다. 되돌릴 수 없습니다.',
     }
   }
 

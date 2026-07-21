@@ -536,21 +536,27 @@ export default function GachaDetailTabs({
   const [deleteError, setDeleteError] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const productCount = products.length
-  const inventoryTotal = Object.values(inventoryCounts).reduce(
-    (sum, counts) => sum + (counts.total ?? 0),
-    0
-  )
-
   async function handleDeleteSeries() {
-    const confirmed = window.confirm(
-      `상품 ${productCount}종과 재고 ${inventoryTotal.toLocaleString()}개가 함께 삭제됩니다. 되돌릴 수 없습니다.`
-    )
-    if (!confirmed) return
-
     setDeleteError('')
     setIsDeleting(true)
-    const result = await deleteGachaSeriesAction(series.id)
+
+    const preview = await deleteGachaSeriesAction(series.id, false)
+    if (preview?.error) {
+      setDeleteError(preview.error)
+      setIsDeleting(false)
+      return
+    }
+
+    const confirmed = window.confirm(
+      preview?.confirmMessage ??
+        '이 시리즈를 삭제합니다. 되돌릴 수 없습니다.'
+    )
+    if (!confirmed) {
+      setIsDeleting(false)
+      return
+    }
+
+    const result = await deleteGachaSeriesAction(series.id, true)
     // 성공 시 액션 내부 redirect()가 throw되어 여기 도달 안 함.
     if (result?.error) {
       setDeleteError(result.error)
