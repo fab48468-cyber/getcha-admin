@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -31,9 +31,9 @@ export async function addBadInventoryAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const poolType = getPoolType(formData)
@@ -95,9 +95,9 @@ export async function toggleFeaturedAction(
   itemId: string,
   isFeatured: boolean
 ): Promise<{ error?: string }> {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
   if (!itemId) {
     return { error: '항목 ID가 필요합니다.' }
@@ -121,9 +121,9 @@ export async function toggleFeaturedAction(
 export async function consumeItemAction(
   itemId: string
 ): Promise<{ error?: string }> {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
   if (!itemId) {
     return { error: '항목 ID가 필요합니다.' }

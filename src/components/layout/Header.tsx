@@ -1,12 +1,15 @@
 'use client'
 
+import type { AdminRole } from '@/lib/auth'
+
 type HeaderProps = {
   title: string
-  role: 'admin' | 'super_admin'
+  role: AdminRole
 }
 
 export function Header({ title, role }: HeaderProps) {
   const isSuperAdmin = role === 'super_admin'
+  const isCs = role === 'cs'
 
   return (
     <header
@@ -37,14 +40,20 @@ export function Header({ title, role }: HeaderProps) {
           borderRadius: 999,
           fontSize: 12,
           fontWeight: 700,
-          backgroundColor: isSuperAdmin ? '#F0EEFF' : '#F5F5F5',
-          color: isSuperAdmin ? '#8B5CF6' : '#6B6B6B',
+          backgroundColor: isSuperAdmin
+            ? '#F0EEFF'
+            : isCs
+              ? '#EEFBD0'
+              : '#F5F5F5',
+          color: isSuperAdmin ? '#8B5CF6' : isCs ? '#5B8B1E' : '#6B6B6B',
           border: isSuperAdmin
             ? '1px solid #8B5CF6'
-            : '1px solid #E0DDD8',
+            : isCs
+              ? '1px solid #B7E46B'
+              : '1px solid #E0DDD8',
         }}
       >
-        {isSuperAdmin ? 'super_admin' : 'admin'}
+        {role}
       </span>
     </header>
   )

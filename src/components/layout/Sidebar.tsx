@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import type { AdminRole } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/client'
 
 const BASE_NAV_ITEMS = [
@@ -28,16 +29,33 @@ const SUPER_ADMIN_NAV_ITEM = {
   href: '/coins',
 } as const
 
+/** cs 에게 숨기는 쓰기 전용 메뉴 */
+const CS_HIDDEN_HREFS = new Set([
+  '/banners',
+  '/gacha',
+  '/kuji',
+  '/announcements',
+  '/push-notifications',
+  '/coins',
+])
+
 type SidebarProps = {
   email: string
-  role: 'admin' | 'super_admin'
+  role: AdminRole
 }
 
 export function Sidebar({ email, role }: SidebarProps) {
-  const navItems =
-    role === 'super_admin'
-      ? [...BASE_NAV_ITEMS, SUPER_ADMIN_NAV_ITEM]
-      : [...BASE_NAV_ITEMS]
+  const navItems = (() => {
+    const items =
+      role === 'super_admin'
+        ? [...BASE_NAV_ITEMS, SUPER_ADMIN_NAV_ITEM]
+        : [...BASE_NAV_ITEMS]
+
+    if (role === 'cs') {
+      return items.filter((item) => !CS_HIDDEN_HREFS.has(item.href))
+    }
+    return items
+  })()
   const pathname = usePathname()
   const [hoveredHref, setHoveredHref] = useState<string | null>(null)
 

@@ -3,7 +3,7 @@
 import { randomInt } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -24,9 +24,9 @@ export async function createKujiSeriesAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const name = getString(formData, 'name')
@@ -65,9 +65,9 @@ export async function updateKujiSeriesAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const name = getString(formData, 'name')
@@ -109,9 +109,9 @@ export async function createKujiProductAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const name = getString(formData, 'name')
@@ -156,9 +156,9 @@ export async function createKujiTicketsAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const adminClient = createAdminClient()
@@ -281,9 +281,9 @@ export async function createKujiTicketsAction(
 }
 
 export async function deleteKujiSeriesAction(seriesId: string) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const adminClient = createAdminClient()

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -51,9 +51,9 @@ export async function createAnnouncementAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const fields = parseAnnouncementForm(formData)
@@ -86,9 +86,9 @@ export async function updateAnnouncementAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const fields = parseAnnouncementForm(formData)
@@ -121,7 +121,7 @@ export async function updateAnnouncementAction(
 }
 
 export async function deleteAnnouncementAction(announcementId: string) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
     redirect('/login')
   }

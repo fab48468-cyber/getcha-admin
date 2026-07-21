@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 
 type RefundResult = {
@@ -37,8 +37,8 @@ export async function refundChargeAction(
   userId: string,
   reason: string
 ) {
-  const admin = await getAdminUser()
-  if (!admin) return { error: '관리자 인증이 필요합니다.' }
+  const admin = await requireWriteAdmin()
+  if (!admin) return { error: '이 작업을 수행할 권한이 없습니다.' }
   if (!reason?.trim()) return { error: '환불 사유를 입력해 주세요.' }
 
   // Edge Function 은 세션 JWT 로 관리자 여부를 검증한다 → 반드시 세션 클라이언트 사용

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   BANNER_BUCKET,
@@ -127,9 +127,9 @@ export async function createBannerAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const fields = parseBannerForm(formData)
@@ -166,9 +166,9 @@ export async function updateBannerAction(
   _prevState: ActionState,
   formData: FormData
 ) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const fields = parseBannerForm(formData)
@@ -221,9 +221,9 @@ export async function toggleBannerActiveAction(
   bannerId: string,
   isActive: boolean
 ): Promise<{ error?: string }> {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
   if (!bannerId) {
     return { error: '배너 ID가 필요합니다.' }
@@ -244,7 +244,7 @@ export async function toggleBannerActiveAction(
 }
 
 export async function deleteBannerAction(bannerId: string) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
     redirect('/login')
   }

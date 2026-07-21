@@ -1,6 +1,8 @@
 import { createClient } from './supabase/server'
 import { createAdminClient } from './supabase/admin'
 
+export type AdminRole = 'super_admin' | 'admin' | 'cs'
+
 /** 현재 세션 유저 가져오기 */
 export async function getUser() {
   const supabase = await createClient()
@@ -21,7 +23,14 @@ export async function getAdminUser() {
     .single()
 
   if (!data) return null
-  return { ...user, role: data.role as 'admin' | 'super_admin' }
+  return { ...user, role: data.role as AdminRole }
+}
+
+/** 쓰기 권한: cs 는 조회 전용 */
+export async function requireWriteAdmin() {
+  const admin = await getAdminUser()
+  if (!admin || admin.role === 'cs') return null
+  return admin
 }
 
 /** super_admin 여부 확인 */

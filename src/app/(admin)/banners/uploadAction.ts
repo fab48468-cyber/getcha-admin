@@ -1,13 +1,13 @@
 'use server'
 
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BANNER_BUCKET } from './banner-utils'
 
 export async function uploadBannerImageAction(formData: FormData) {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const file = formData.get('file') as File | null

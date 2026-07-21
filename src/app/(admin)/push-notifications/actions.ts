@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 
 type SendResult =
   | { success: true; sent: number; failed: number }
@@ -78,9 +78,9 @@ export async function sendPushNotification(
   input: SendPushInput
 ): Promise<SendResult> {
   // 1. 관리자 인증
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { success: false, error: '권한이 없습니다.' }
+    return { success: false, error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   // 2. 입력 검증

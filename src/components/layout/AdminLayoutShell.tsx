@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import type { AdminRole } from '@/lib/auth'
 import { Header } from './Header'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -27,7 +28,7 @@ function getPageTitle(pathname: string) {
 }
 
 type AdminLayoutShellProps = {
-  role: 'admin' | 'super_admin'
+  role: AdminRole
   children: React.ReactNode
 }
 

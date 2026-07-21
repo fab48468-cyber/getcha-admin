@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAdminUser } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -23,9 +23,9 @@ export async function addConfirmExchangeInventoryAction(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
-    return { error: '관리자 인증이 필요합니다.' }
+    return { error: '이 작업을 수행할 권한이 없습니다.' }
   }
 
   const seriesId = getString(formData, 'series_id')
