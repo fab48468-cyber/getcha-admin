@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import UserDetailTabs, {
   type ActivityRow,
+  type CoinChargeRow,
   type ShipmentRow,
   type TransactionRow,
   type UserDetail,
@@ -21,6 +22,7 @@ export default async function UserDetailPage({
     { data: authUserData },
     { data: coinTransactionsData },
     { data: tokenTransactionsData },
+    { data: coinChargesData },
     { data: shipmentsData },
     { data: gachaPullsData },
     { data: kujiPurchasesData },
@@ -45,6 +47,12 @@ export default async function UserDetailPage({
       .eq('user_id', id)
       .order('created_at', { ascending: false })
       .limit(10),
+    adminClient
+      .from('coin_charges')
+      .select('id, coin_amount, krw_amount, status, pg_provider, created_at, refund_reason')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false })
+      .limit(20),
     adminClient
       .from('shipments')
       .select('id, status, recipient_name, requested_at')
@@ -115,6 +123,7 @@ export default async function UserDetailPage({
         email={email}
         coinTransactions={(coinTransactionsData ?? []) as TransactionRow[]}
         tokenTransactions={(tokenTransactionsData ?? []) as TransactionRow[]}
+        coinCharges={(coinChargesData ?? []) as CoinChargeRow[]}
         shipments={(shipmentsData ?? []) as ShipmentRow[]}
         gachaPulls={(gachaPullsData ?? []) as ActivityRow[]}
         kujiPurchases={(kujiPurchasesData ?? []) as ActivityRow[]}

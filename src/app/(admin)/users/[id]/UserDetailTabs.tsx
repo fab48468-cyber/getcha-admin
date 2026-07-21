@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useTransition } from 'react'
 import { removeUserPenaltyAction, updateUserStatusAction } from '../actions'
+import { refundChargeAction } from './refundAction'
 
 export type UserDetail = {
   id: string
@@ -34,6 +35,16 @@ export type TransactionRow = {
   created_at: string | null
 }
 
+export type CoinChargeRow = {
+  id: string
+  coin_amount: number | null
+  krw_amount: number | null
+  status: string | null
+  pg_provider: string | null
+  created_at: string | null
+  refund_reason: string | null
+}
+
 export type ShipmentRow = {
   id: string
   status: string | null
@@ -55,6 +66,7 @@ type UserDetailTabsProps = {
   email: string | null
   coinTransactions: TransactionRow[]
   tokenTransactions: TransactionRow[]
+  coinCharges: CoinChargeRow[]
   shipments: ShipmentRow[]
   gachaPulls: ActivityRow[]
   kujiPurchases: ActivityRow[]
@@ -158,15 +170,27 @@ function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function ActionMessage({ error, success }: { error?: string; success?: string }) {
+function ActionMessage({
+  error,
+  success,
+  critical,
+}: {
+  error?: string
+  success?: string
+  critical?: boolean
+}) {
   if (!error && !success) return null
 
   return (
     <div
       style={{
-        backgroundColor: error ? '#FEE2E2' : '#EEFBD0',
-        color: error ? '#DC2626' : '#5B8B1E',
-        border: error ? '1px solid #FCA5A5' : '1px solid #B7E46B',
+        backgroundColor: critical ? '#7F1D1D' : error ? '#FEE2E2' : '#EEFBD0',
+        color: critical ? '#FFFFFF' : error ? '#DC2626' : '#5B8B1E',
+        border: critical
+          ? '2px solid #DC2626'
+          : error
+            ? '1px solid #FCA5A5'
+            : '1px solid #B7E46B',
         borderRadius: 10,
         padding: 12,
         fontSize: 14,
@@ -409,17 +433,309 @@ function ActivityList({
   )
 }
 
+function getChargeStatusLabel(status: string | null) {
+  switch (status) {
+    case 'completed':
+      return '완료'
+    case 'refunded':
+      return '환불됨'
+    case 'pending':
+      return '대기'
+    case 'failed':
+      return '실패'
+    default:
+      return status || '-'
+  }
+}
+
+function getProviderLabel(provider: string | null) {
+  switch (provider) {
+    case 'tosspayments':
+      return '토스페이먼츠'
+    case 'google_play':
+      return 'Google Play'
+    case 'app_store':
+      return 'App Store'
+    default:
+      return provider || '-'
+  }
+}
+
+function CoinChargesSection({
+  userId,
+  charges,
+}: {
+  userId: string
+  charges: CoinChargeRow[]
+}) {
+  const [isPending, startTransition] = useTransition()
+  const [message, setMessage] = useState<{
+    error?: string
+    success?: string
+    critical?: boolean
+  }>({})
+  const [reasonByCharge, setReasonByCharge] = useState<Record<string, string>>({})
+  const [openChargeId, setOpenChargeId] = useState<string | null>(null)
+
+  function handleRefund(charge: CoinChargeRow) {
+    const reason = (reasonByCharge[charge.id] ?? '').trim()
+    if (!reason) {
+      setMessage({ error: '환불 사유를 입력해 주세요.' })
+      return
+    }
+
+    const krw = formatNumber(charge.krw_amount)
+    const coins = formatNumber(charge.coin_amount)
+    const confirmed = window.confirm(
+      `${krw}원을 환불합니다. 코인 ${coins}개가 차감되고 결제가 취소됩니다. 되돌릴 수 없습니다.`
+    )
+    if (!confirmed) return
+
+    startTransition(async () => {
+      const result = await refundChargeAction(charge.id, userId, reason)
+      if (result.error) {
+        setMessage({
+          error: result.error,
+          critical: 'critical' in result ? Boolean(result.critical) : false,
+        })
+        return
+      }
+      setMessage({ success: result.success })
+      setOpenChargeId(null)
+      setReasonByCharge((prev) => {
+        const next = { ...prev }
+        delete next[charge.id]
+        return next
+      })
+    })
+  }
+
+  return (
+    <section style={sectionStyle}>
+      <SectionTitle>충전 내역</SectionTitle>
+      <ActionMessage
+        error={message.error}
+        success={message.success}
+        critical={message.critical}
+      />
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead style={{ backgroundColor: '#F9F9F9' }}>
+          <tr>
+            {['코인', '금액', '상태', '결제수단', '일시', '환불'].map((header) => (
+              <th
+                key={header}
+                style={{
+                  color: '#6B7280',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  padding: '12px 14px',
+                  textAlign: 'left',
+                  borderBottom: '1px solid #E0DDD8',
+                }}
+              >
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {charges.map((charge) => {
+            const canRefund =
+              charge.status === 'completed' && charge.pg_provider === 'tosspayments'
+            const isStorePayment =
+              charge.status === 'completed' &&
+              charge.pg_provider !== 'tosspayments' &&
+              Boolean(charge.pg_provider)
+            const isOpen = openChargeId === charge.id
+
+            return (
+              <tr key={charge.id}>
+                <td
+                  style={{
+                    color: '#1A1A1A',
+                    fontSize: 14,
+                    fontWeight: 800,
+                    padding: 14,
+                    borderBottom: '1px solid #F0EEEA',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {formatNumber(charge.coin_amount)}
+                </td>
+                <td
+                  style={{
+                    color: '#1A1A1A',
+                    fontSize: 14,
+                    padding: 14,
+                    borderBottom: '1px solid #F0EEEA',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {formatNumber(charge.krw_amount)}원
+                </td>
+                <td
+                  style={{
+                    color: '#1A1A1A',
+                    fontSize: 14,
+                    padding: 14,
+                    borderBottom: '1px solid #F0EEEA',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {getChargeStatusLabel(charge.status)}
+                  {charge.refund_reason && (
+                    <div style={{ color: '#6B7280', fontSize: 12, marginTop: 4 }}>
+                      {charge.refund_reason}
+                    </div>
+                  )}
+                </td>
+                <td
+                  style={{
+                    color: '#1A1A1A',
+                    fontSize: 14,
+                    padding: 14,
+                    borderBottom: '1px solid #F0EEEA',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {getProviderLabel(charge.pg_provider)}
+                </td>
+                <td
+                  style={{
+                    color: '#6B7280',
+                    fontSize: 14,
+                    padding: 14,
+                    borderBottom: '1px solid #F0EEEA',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {formatDateTime(charge.created_at)}
+                </td>
+                <td
+                  style={{
+                    padding: 14,
+                    borderBottom: '1px solid #F0EEEA',
+                    verticalAlign: 'top',
+                    minWidth: 220,
+                  }}
+                >
+                  {canRefund ? (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {isOpen ? (
+                        <>
+                          <textarea
+                            value={reasonByCharge[charge.id] ?? ''}
+                            onChange={(event) =>
+                              setReasonByCharge((prev) => ({
+                                ...prev,
+                                [charge.id]: event.target.value,
+                              }))
+                            }
+                            rows={3}
+                            placeholder="환불 사유 (필수)"
+                            style={{ ...inputStyle, resize: 'vertical' }}
+                          />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => handleRefund(charge)}
+                              style={{
+                                backgroundColor: '#EF4444',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: 8,
+                                padding: '8px 12px',
+                                fontSize: 13,
+                                fontWeight: 900,
+                                cursor: isPending ? 'not-allowed' : 'pointer',
+                                opacity: isPending ? 0.6 : 1,
+                              }}
+                            >
+                              {isPending ? '처리 중...' : '환불 확정'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => setOpenChargeId(null)}
+                              style={{
+                                backgroundColor: '#F3F4F6',
+                                color: '#6B7280',
+                                border: 'none',
+                                borderRadius: 8,
+                                padding: '8px 12px',
+                                fontSize: 13,
+                                fontWeight: 900,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              닫기
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => {
+                            setMessage({})
+                            setOpenChargeId(charge.id)
+                          }}
+                          style={{
+                            backgroundColor: '#FEE2E2',
+                            color: '#EF4444',
+                            border: '1px solid #FCA5A5',
+                            borderRadius: 8,
+                            padding: '8px 12px',
+                            fontSize: 13,
+                            fontWeight: 900,
+                            cursor: isPending ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          환불
+                        </button>
+                      )}
+                    </div>
+                  ) : isStorePayment ? (
+                    <span style={{ color: '#D97706', fontSize: 13, fontWeight: 800 }}>
+                      스토어 환불 대상
+                    </span>
+                  ) : (
+                    <span style={{ color: '#9CA3AF', fontSize: 13 }}>-</span>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {charges.length === 0 && (
+        <div style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: 24 }}>
+          충전 내역이 없습니다.
+        </div>
+      )}
+    </section>
+  )
+}
+
 function TransactionsTab({
+  userId,
   coinTransactions,
   tokenTransactions,
+  coinCharges,
   gachaPulls,
   kujiPurchases,
 }: Pick<
   UserDetailTabsProps,
-  'coinTransactions' | 'tokenTransactions' | 'gachaPulls' | 'kujiPurchases'
->) {
+  | 'coinTransactions'
+  | 'tokenTransactions'
+  | 'coinCharges'
+  | 'gachaPulls'
+  | 'kujiPurchases'
+> & { userId: string }) {
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      <CoinChargesSection userId={userId} charges={coinCharges} />
       <TransactionTable title="코인 거래 내역" rows={coinTransactions} />
       <TransactionTable title="토큰 거래 내역" rows={tokenTransactions} />
       <ActivityList title="최근 가챠 뽑기" rows={gachaPulls} type="gacha" />
@@ -601,6 +917,7 @@ export default function UserDetailTabs({
   email,
   coinTransactions,
   tokenTransactions,
+  coinCharges,
   shipments,
   gachaPulls,
   kujiPurchases,
@@ -648,8 +965,10 @@ export default function UserDetailTabs({
       {activeTab === 'basic' && <BasicInfoTab user={user} email={email} />}
       {activeTab === 'transactions' && (
         <TransactionsTab
+          userId={user.id}
           coinTransactions={coinTransactions}
           tokenTransactions={tokenTransactions}
+          coinCharges={coinCharges}
           gachaPulls={gachaPulls}
           kujiPurchases={kujiPurchases}
         />
