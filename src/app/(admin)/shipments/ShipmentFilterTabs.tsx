@@ -1,6 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState, useTransition } from 'react'
+import {
+  bulkUpdateShipmentStatusAction,
+  type BulkUpdateShipmentResult,
+} from './actions'
 
 export type ShipmentStatus =
   | 'requested'
@@ -55,6 +60,21 @@ const FILTER_TABS = [
 ] as const
 
 type FilterKey = (typeof FILTER_TABS)[number]['key']
+
+const BULK_ACTIONS: Partial<
+  Record<FilterKey, { nextStatus: 'preparing' | 'packed'; label: string; confirmLabel: string }>
+> = {
+  requested: {
+    nextStatus: 'preparing',
+    label: '준비중 처리',
+    confirmLabel: '준비중',
+  },
+  preparing: {
+    nextStatus: 'packed',
+    label: '포장완료 처리',
+    confirmLabel: '포장완료',
+  },
+}
 
 function formatDate(value: string | null) {
   if (!value) return '-'
@@ -118,6 +138,25 @@ function buildPageHref(status: string, q: string, page: number) {
   return query ? `/shipments?${query}` : '/shipments'
 }
 
+function formatBulkResultBanner(result: BulkUpdateShipmentResult) {
+  const lines = [`성공 ${result.succeeded}건 · 실패 ${result.failed.length}건`]
+
+  if (result.failed.length > 0) {
+    const grouped = new Map<string, string[]>()
+    for (const item of result.failed) {
+      const ids = grouped.get(item.reason) ?? []
+      ids.push(item.id)
+      grouped.set(item.reason, ids)
+    }
+
+    for (const [reason, ids] of grouped) {
+      lines.push(`${reason}(${ids.length}건): ${ids.join(', ')}`)
+    }
+  }
+
+  return lines
+}
+
 export default function ShipmentFilterTabs({
   shipments,
   counts,
@@ -135,6 +174,60 @@ export default function ShipmentFilterTabs({
   totalCount: number
   totalPages: number
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkResult, setBulkResult] = useState<BulkUpdateShipmentResult | null>(null)
+  const [bulkError, setBulkError] = useState('')
+  const [isPending, startTransition] = useTransition()
+  const bulkAction = BULK_ACTIONS[activeStatus]
+  const pageIds = shipments.map((shipment) => shipment.id)
+  const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
+  const selectedCount = selectedIds.size
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+    setBulkResult(null)
+    setBulkError('')
+  }, [activeStatus, page, q])
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set())
+      return
+    }
+    setSelectedIds(new Set(pageIds))
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleBulkUpdate() {
+    if (!bulkAction || selectedCount === 0) return
+
+    const confirmed = window.confirm(
+      `선택한 ${selectedCount}건을 ${bulkAction.confirmLabel} 상태로 변경합니다.`
+    )
+    if (!confirmed) return
+
+    const ids = [...selectedIds]
+    startTransition(async () => {
+      const result = await bulkUpdateShipmentStatusAction(ids, bulkAction.nextStatus)
+      if (result.error) {
+        setBulkError(result.error)
+        setBulkResult(null)
+        return
+      }
+      setBulkError('')
+      setBulkResult(result)
+      setSelectedIds(new Set())
+    })
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -162,6 +255,63 @@ export default function ShipmentFilterTabs({
         })}
       </div>
 
+      {bulkAction && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 12,
+            padding: '12px 14px',
+            backgroundColor: '#F9F9F9',
+            border: '1px solid #E0DDD8',
+            borderRadius: 10,
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleBulkUpdate}
+            disabled={selectedCount === 0 || isPending}
+            style={{
+              backgroundColor: selectedCount === 0 || isPending ? '#E5E7EB' : '#8CC63F',
+              color: selectedCount === 0 || isPending ? '#9CA3AF' : '#1A1A1A',
+              border: 'none',
+              borderRadius: 10,
+              padding: '10px 14px',
+              fontSize: 13,
+              fontWeight: 900,
+              cursor: selectedCount === 0 || isPending ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isPending
+              ? '처리 중...'
+              : `선택 ${selectedCount}건 ${bulkAction.label}`}
+          </button>
+          <span style={{ color: '#6B7280', fontSize: 13, fontWeight: 700 }}>
+            현재 페이지에서 선택한 건만 처리합니다.
+          </span>
+        </div>
+      )}
+
+      {(bulkError || bulkResult) && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: `1px solid ${bulkError || (bulkResult && bulkResult.failed.length > 0) ? '#FECACA' : '#BBF7D0'}`,
+            backgroundColor:
+              bulkError || (bulkResult && bulkResult.failed.length > 0) ? '#FEF2F2' : '#F0FDF4',
+            color: '#1A1A1A',
+            fontSize: 13,
+            fontWeight: 700,
+            whiteSpace: 'pre-line',
+          }}
+        >
+          {bulkError || (bulkResult ? formatBulkResultBanner(bulkResult).join('\n') : '')}
+        </div>
+      )}
+
       <div
         style={{
           backgroundColor: '#FFFFFF',
@@ -173,6 +323,24 @@ export default function ShipmentFilterTabs({
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ backgroundColor: '#F9F9F9' }}>
             <tr>
+              <th
+                style={{
+                  color: '#6B7280',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  padding: '14px 16px',
+                  textAlign: 'left',
+                  borderBottom: '1px solid #E0DDD8',
+                  width: 44,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  aria-label="현재 페이지 전체 선택"
+                />
+              </th>
               {['신청일', '주문자(닉네임)', '수령인', '상태', '배송비(코인)', '운송장', '관리'].map(
                 (header) => (
                   <th
@@ -195,6 +363,14 @@ export default function ShipmentFilterTabs({
           <tbody>
             {shipments.map((shipment) => (
               <tr key={shipment.id}>
+                <td style={{ padding: 16, borderBottom: '1px solid #F0EEEA' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(shipment.id)}
+                    onChange={() => toggleOne(shipment.id)}
+                    aria-label={`${shipment.id} 선택`}
+                  />
+                </td>
                 <td style={{ color: '#6B7280', fontSize: 14, padding: 16, borderBottom: '1px solid #F0EEEA' }}>
                   {formatDate(shipment.requested_at)}
                 </td>

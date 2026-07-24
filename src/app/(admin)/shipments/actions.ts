@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAdminUser } from '@/lib/auth'
+import { getAdminUser, requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -127,4 +127,75 @@ export async function updateShipmentAction(
   }
 
   return { error: '', success: parts.join(' · ') }
+}
+
+const BULK_NEXT_STATUSES = new Set(['preparing', 'packed'] as const)
+
+export type BulkUpdateShipmentResult = {
+  succeeded: number
+  failed: { id: string; reason: string; message: string }[]
+  error?: string
+}
+
+export async function bulkUpdateShipmentStatusAction(
+  shipmentIds: string[],
+  nextStatus: 'preparing' | 'packed'
+): Promise<BulkUpdateShipmentResult> {
+  if (!BULK_NEXT_STATUSES.has(nextStatus)) {
+    return {
+      succeeded: 0,
+      failed: [],
+      error: '허용되지 않은 상태값입니다.',
+    }
+  }
+
+  const admin = await requireWriteAdmin()
+  if (!admin) {
+    return {
+      succeeded: 0,
+      failed: [],
+      error: '권한이 없습니다.',
+    }
+  }
+
+  const adminClient = createAdminClient()
+  const failed: BulkUpdateShipmentResult['failed'] = []
+  let succeeded = 0
+
+  for (const shipmentId of shipmentIds) {
+    const { data, error } = await adminClient.rpc('admin_update_shipment_status', {
+      p_shipment_id: shipmentId,
+      p_new_status: nextStatus,
+      p_admin_user_id: admin.id,
+      p_courier_company: null,
+      p_tracking_number: null,
+      p_tracking_url: null,
+      p_memo: null,
+    })
+
+    if (error) {
+      failed.push({
+        id: shipmentId,
+        reason: 'rpc_error',
+        message: error.message,
+      })
+      continue
+    }
+
+    const result = data as RpcResult | null
+    if (!result?.success) {
+      failed.push({
+        id: shipmentId,
+        reason: result?.reason ?? 'unknown',
+        message: getRpcErrorMessage(result),
+      })
+      continue
+    }
+
+    succeeded += 1
+  }
+
+  revalidatePath('/shipments')
+
+  return { succeeded, failed }
 }
