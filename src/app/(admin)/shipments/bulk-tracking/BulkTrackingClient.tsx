@@ -46,7 +46,8 @@ function downloadTemplate() {
 }
 
 function escapeCsvField(value: string) {
-  return `"${value.replace(/"/g, '""')}"`
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+  return `"${guarded.replace(/"/g, '""')}"`
 }
 
 function VerdictBadge({

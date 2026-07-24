@@ -84,7 +84,8 @@ function getProductKind(productType: string | null) {
 }
 
 function escapeCsvField(value: string) {
-  return `"${value.replace(/"/g, '""')}"`
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+  return `"${guarded.replace(/"/g, '""')}"`
 }
 
 function formatRequestedAtKst(value: string | null) {
@@ -243,7 +244,7 @@ export async function GET(request: Request) {
     }
   }
 
-  await adminClient.from('admin_actions').insert({
+  const { error: exportLogError } = await adminClient.from('admin_actions').insert({
     action_type: 'shipment_export',
     admin_user_id: admin.id,
     target_type: 'shipments',
@@ -253,6 +254,9 @@ export async function GET(request: Request) {
       count: shipments.length,
     },
   })
+  if (exportLogError) {
+    console.error('shipment_export 로그 실패:', exportLogError.message)
+  }
 
   const header = [
     'shipment_id',
@@ -290,6 +294,15 @@ export async function GET(request: Request) {
       shipment.tracking_number ?? '',
     ].map(escapeCsvField)
   })
+
+  if (shipments.length === 1000) {
+    rows.push(
+      [
+        '※ 1000행 상한 도달 — 필터를 좁혀 다시 내보내세요',
+        ...Array.from({ length: header.length - 1 }, () => ''),
+      ].map(escapeCsvField)
+    )
+  }
 
   const csvBody = [header.map(escapeCsvField).join(','), ...rows.map((row) => row.join(','))].join(
     '\r\n'

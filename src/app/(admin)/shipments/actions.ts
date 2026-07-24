@@ -141,6 +141,14 @@ export async function bulkUpdateShipmentStatusAction(
   shipmentIds: string[],
   nextStatus: 'preparing' | 'packed'
 ): Promise<BulkUpdateShipmentResult> {
+  if (shipmentIds.length > 100) {
+    return {
+      succeeded: 0,
+      failed: [],
+      error: '한 번에 최대 100건까지 처리할 수 있습니다.',
+    }
+  }
+
   if (!BULK_NEXT_STATUSES.has(nextStatus)) {
     return {
       succeeded: 0,
