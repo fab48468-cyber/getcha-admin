@@ -55,6 +55,72 @@ async function sendExpoPush(
   return { deadTokens }
 }
 
+export async function assignInquiryAction(inquiryId: string) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
+  if (!inquiryId) {
+    return { error: '문의 ID가 없습니다.' }
+  }
+
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('support_inquiries')
+    .update({ assigned_to: admin.id })
+    .eq('id', inquiryId)
+    .is('assigned_to', null)
+    .select('id')
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  if (!data || data.length === 0) {
+    return { error: '이미 다른 관리자가 담당 중입니다. 새로고침해 주세요.' }
+  }
+
+  revalidatePath('/support')
+  revalidatePath(`/support/${inquiryId}`)
+  return { error: undefined }
+}
+
+export async function unassignInquiryAction(inquiryId: string) {
+  const admin = await getAdminUser()
+  if (!admin) {
+    return { error: '관리자 인증이 필요합니다.' }
+  }
+
+  if (!inquiryId) {
+    return { error: '문의 ID가 없습니다.' }
+  }
+
+  const adminClient = createAdminClient()
+  let query = adminClient
+    .from('support_inquiries')
+    .update({ assigned_to: null })
+    .eq('id', inquiryId)
+
+  if (admin.role !== 'super_admin') {
+    query = query.eq('assigned_to', admin.id)
+  }
+
+  const { data, error } = await query.select('id')
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  if (!data || data.length === 0) {
+    return { error: '배정을 해제할 권한이 없거나 이미 변경되었습니다. 새로고침해 주세요.' }
+  }
+
+  revalidatePath('/support')
+  revalidatePath(`/support/${inquiryId}`)
+  return { error: undefined }
+}
+
 export async function updateInquiryAction(formData: FormData) {
   const inquiryId = getString(formData, 'inquiryId')
   const status = getStatus(formData)
@@ -76,7 +142,7 @@ export async function updateInquiryAction(formData: FormData) {
   const adminClient = createAdminClient()
   const { data: currentInquiry, error: currentError } = await adminClient
     .from('support_inquiries')
-    .select('answered_at, user_id')
+    .select('answered_at, user_id, assigned_to')
     .eq('id', inquiryId)
     .single()
 
@@ -93,6 +159,10 @@ export async function updateInquiryAction(formData: FormData) {
 
   if (!currentInquiry.answered_at && answerContent) {
     updatePayload.answered_at = new Date().toISOString()
+  }
+
+  if (!currentInquiry.assigned_to) {
+    updatePayload.assigned_to = admin.id
   }
 
   const { error: updateError } = await adminClient

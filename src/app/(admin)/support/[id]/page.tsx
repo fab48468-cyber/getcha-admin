@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAdminUser } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import InquiryAnswerForm from './InquiryAnswerForm'
@@ -9,11 +10,14 @@ export default async function SupportDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  const admin = await getAdminUser()
+  if (!admin) notFound()
+
   const adminClient = createAdminClient()
 
   const { data: inquiry } = await adminClient
     .from('support_inquiries')
-    .select('*')
+    .select('*, assigned_to, updated_at')
     .eq('id', id)
     .single()
 
@@ -24,6 +28,17 @@ export default async function SupportDetailPage({
     .select('nickname, phone_number')
     .eq('id', inquiry.user_id)
     .single()
+
+  let assigneeDisplay: string | null = null
+  if (inquiry.assigned_to) {
+    const { data: assigneeAdmin } = await adminClient
+      .from('admins')
+      .select('id, display_name')
+      .eq('id', inquiry.assigned_to)
+      .single()
+    assigneeDisplay =
+      assigneeAdmin?.display_name ?? inquiry.assigned_to.slice(0, 8)
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -61,8 +76,12 @@ export default async function SupportDetailPage({
         )}
       </div>
 
-      {/* 답변 */}
-      <InquiryAnswerForm inquiry={inquiry} />
+      <InquiryAnswerForm
+        inquiry={inquiry}
+        assigneeDisplay={assigneeDisplay}
+        currentAdminId={admin.id}
+        currentAdminRole={admin.role}
+      />
     </div>
   )
 }
