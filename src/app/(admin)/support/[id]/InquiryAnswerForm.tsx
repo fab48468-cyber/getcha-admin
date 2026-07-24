@@ -20,6 +20,7 @@ type InquiryAnswerFormProps = {
     status: string
     answer_content: string | null
     assigned_to: string | null
+    updated_at: string
   }
   assigneeDisplay: string | null
   currentAdminId: string
@@ -50,6 +51,8 @@ export default function InquiryAnswerForm({
     formData.set('inquiryId', inquiry.id)
     formData.set('status', status)
     formData.set('answer_content', answer)
+    // PostgREST가 준 updated_at 문자열을 재직렬화 없이 그대로 전달 (timestamptz 정밀도 보존)
+    formData.set('expected_updated_at', inquiry.updated_at)
     const result = await updateInquiryAction(formData)
     setSaving(false)
     setMessage(result?.error ?? '저장됐습니다.')
@@ -164,7 +167,18 @@ export default function InquiryAnswerForm({
             placeholder="답변을 입력하세요"
             style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E0DDD8', fontSize: 14, resize: 'vertical' }} />
         </div>
-        {message && <div style={{ marginBottom: 12, color: '#8CC63F', fontWeight: 700 }}>{message}</div>}
+        {message && (
+          <div
+            style={{
+              marginBottom: 12,
+              color: message === '저장됐습니다.' ? '#8CC63F' : '#EF4444',
+              fontWeight: 700,
+            }}
+          >
+            {message}
+          </div>
+        )}
+        <input type="hidden" name="expected_updated_at" value={inquiry.updated_at} readOnly />
         <button onClick={handleSave} disabled={saving}
           style={{ backgroundColor: '#8CC63F', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
           {saving ? '저장 중...' : '저장'}

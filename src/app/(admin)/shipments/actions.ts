@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAdminUser, requireWriteAdmin } from '@/lib/auth'
+import { requireWriteAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -83,7 +83,7 @@ export async function updateShipmentAction(
     return { error: '변경할 배송 상태를 선택해 주세요.' }
   }
 
-  const admin = await getAdminUser()
+  const admin = await requireWriteAdmin()
   if (!admin) {
     return { error: '관리자 인증이 필요합니다.' }
   }

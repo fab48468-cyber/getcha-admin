@@ -121,10 +121,12 @@ export async function unassignInquiryAction(inquiryId: string) {
   return { error: undefined }
 }
 
+// cs 답변 허용 — 의도된 예외 (2026-07-24 대표 결정). 조회 전용 원칙의 유일한 쓰기 예외.
 export async function updateInquiryAction(formData: FormData) {
   const inquiryId = getString(formData, 'inquiryId')
   const status = getStatus(formData)
   const answerContent = getString(formData, 'answer_content')
+  const expectedUpdatedAt = getString(formData, 'expected_updated_at')
 
   if (!inquiryId) {
     return { error: '문의 ID가 없습니다.' }
@@ -132,6 +134,10 @@ export async function updateInquiryAction(formData: FormData) {
 
   if (!status) {
     return { error: '변경할 문의 상태를 선택해 주세요.' }
+  }
+
+  if (!expectedUpdatedAt) {
+    return { error: '문의 버전 정보가 없습니다. 새로고침 후 다시 시도해 주세요.' }
   }
 
   const admin = await getAdminUser()
@@ -165,13 +171,22 @@ export async function updateInquiryAction(formData: FormData) {
     updatePayload.assigned_to = admin.id
   }
 
-  const { error: updateError } = await adminClient
+  const { data: updatedRows, error: updateError } = await adminClient
     .from('support_inquiries')
     .update(updatePayload)
     .eq('id', inquiryId)
+    .eq('updated_at', expectedUpdatedAt)
+    .select('id')
 
   if (updateError) {
     return { error: updateError.message }
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return {
+      error:
+        '다른 관리자가 방금 이 문의를 수정했습니다. 새로고침 후 내용을 확인해 주세요.',
+    }
   }
 
   const isNewAnswer = !currentInquiry.answered_at && answerContent
