@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { getAdminUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import ShipmentFilterTabs, {
   type ShipmentListRow,
@@ -127,22 +128,64 @@ export default async function ShipmentsPage({
     counts[status] = statusCountResults[index].count ?? 0
   })
 
+  const admin = await getAdminUser()
+  const canExport = Boolean(admin && admin.role !== 'cs')
+  const exportParams = new URLSearchParams()
+  if (activeStatus !== 'all') exportParams.set('status', activeStatus)
+  if (q) exportParams.set('q', q)
+  const exportHref = exportParams.toString()
+    ? `/shipments/export?${exportParams.toString()}`
+    : '/shipments/export'
+
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h2
-          style={{
-            color: '#1A1A1A',
-            fontSize: 24,
-            fontWeight: 900,
-            margin: 0,
-          }}
-        >
-          배송 관리
-        </h2>
-        <p style={{ color: '#6B7280', fontSize: 14, margin: '6px 0 0' }}>
-          배송 신청부터 완료까지 상태와 운송장 정보를 관리합니다.
-        </p>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          marginBottom: 20,
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              color: '#1A1A1A',
+              fontSize: 24,
+              fontWeight: 900,
+              margin: 0,
+            }}
+          >
+            배송 관리
+          </h2>
+          <p style={{ color: '#6B7280', fontSize: 14, margin: '6px 0 0' }}>
+            배송 신청부터 완료까지 상태와 운송장 정보를 관리합니다.
+          </p>
+        </div>
+
+        {canExport && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <a
+              href={exportHref}
+              style={{
+                backgroundColor: '#FFFFFF',
+                color: '#1A1A1A',
+                border: '1px solid #E0DDD8',
+                borderRadius: 10,
+                padding: '10px 14px',
+                fontSize: 13,
+                fontWeight: 900,
+                textDecoration: 'none',
+              }}
+            >
+              CSV 내보내기
+            </a>
+            <span style={{ color: '#9CA3AF', fontSize: 12, fontWeight: 700 }}>
+              현재 필터 기준
+            </span>
+          </div>
+        )}
       </div>
 
       <Suspense fallback={null}>
