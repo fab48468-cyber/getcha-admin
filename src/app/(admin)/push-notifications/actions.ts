@@ -159,5 +159,22 @@ export async function sendPushNotification(
     await supabase.from('notifications').insert(notifRows)
   }
 
+  // 7. 푸시 발송 이력 기록 (실패해도 발송 결과는 반환)
+  const titleForLog =
+    input.title.length > 100 ? input.title.slice(0, 100) : input.title
+  const { error: logErr } = await supabase.from('push_send_logs').insert({
+    admin_user_id: admin.id,
+    title: titleForLog,
+    body: input.body,
+    target: input.target,
+    target_user_id: input.target === 'user' ? input.targetUserId!.trim() : null,
+    screen: input.screen?.trim() ? input.screen.trim() : null,
+    sent_count: ok,
+    failed_count: fail,
+  })
+  if (logErr) {
+    console.error('push_send_logs 기록 실패:', logErr.message)
+  }
+
   return { success: true, sent: ok, failed: fail }
 }
