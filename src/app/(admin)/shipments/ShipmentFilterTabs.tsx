@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
 
 export type ShipmentStatus =
   | 'requested'
@@ -23,6 +22,17 @@ export type ShipmentListRow = {
   users: { nickname: string | null } | { nickname: string | null }[] | null
 }
 
+export type ShipmentStatusCounts = {
+  all: number
+  requested: number
+  preparing: number
+  packed: number
+  shipped: number
+  delivered: number
+  cancelled: number
+  on_hold: number
+}
+
 const STATUS_STYLES: Record<ShipmentStatus, { label: string; color: string }> = {
   requested: { label: '배송신청', color: '#F59E0B' },
   preparing: { label: '준비중', color: '#8B5CF6' },
@@ -41,6 +51,7 @@ const FILTER_TABS = [
   { key: 'shipped', label: '배송중' },
   { key: 'delivered', label: '배송완료' },
   { key: 'cancelled', label: '취소' },
+  { key: 'on_hold', label: '보류' },
 ] as const
 
 type FilterKey = (typeof FILTER_TABS)[number]['key']
@@ -90,62 +101,63 @@ function StatusBadge({ status }: { status: ShipmentStatus }) {
   )
 }
 
+function buildTabHref(status: FilterKey, q: string) {
+  const params = new URLSearchParams()
+  if (status !== 'all') params.set('status', status)
+  if (q) params.set('q', q)
+  const query = params.toString()
+  return query ? `/shipments?${query}` : '/shipments'
+}
+
+function buildPageHref(status: string, q: string, page: number) {
+  const params = new URLSearchParams()
+  if (status && status !== 'all') params.set('status', status)
+  if (q) params.set('q', q)
+  if (page > 1) params.set('page', String(page))
+  const query = params.toString()
+  return query ? `/shipments?${query}` : '/shipments'
+}
+
 export default function ShipmentFilterTabs({
   shipments,
+  counts,
+  activeStatus,
+  q,
+  page,
+  totalCount,
+  totalPages,
 }: {
   shipments: ShipmentListRow[]
+  counts: ShipmentStatusCounts
+  activeStatus: FilterKey
+  q: string
+  page: number
+  totalCount: number
+  totalPages: number
 }) {
-  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
-  const counts = useMemo(() => {
-    return shipments.reduce(
-      (acc, shipment) => {
-        acc.all += 1
-        if (shipment.status in acc) {
-          acc[shipment.status as keyof typeof acc] += 1
-        }
-        return acc
-      },
-      {
-        all: 0,
-        requested: 0,
-        preparing: 0,
-        packed: 0,
-        shipped: 0,
-        delivered: 0,
-        cancelled: 0,
-      }
-    )
-  }, [shipments])
-
-  const filteredShipments =
-    activeFilter === 'all'
-      ? shipments
-      : shipments.filter((shipment) => shipment.status === activeFilter)
-
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {FILTER_TABS.map((tab) => {
-          const active = activeFilter === tab.key
+          const active = activeStatus === tab.key
 
           return (
-            <button
+            <Link
               key={tab.key}
-              type="button"
-              onClick={() => setActiveFilter(tab.key)}
+              href={buildTabHref(tab.key, q)}
               style={{
                 backgroundColor: active ? '#8CC63F' : '#FFFFFF',
                 color: active ? '#1A1A1A' : '#6B7280',
                 border: '1px solid #E0DDD8',
                 borderRadius: 999,
                 padding: '9px 14px',
-                cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: 900,
+                textDecoration: 'none',
               }}
             >
               {tab.label} {counts[tab.key].toLocaleString()}
-            </button>
+            </Link>
           )
         })}
       </div>
@@ -181,7 +193,7 @@ export default function ShipmentFilterTabs({
             </tr>
           </thead>
           <tbody>
-            {filteredShipments.map((shipment) => (
+            {shipments.map((shipment) => (
               <tr key={shipment.id}>
                 <td style={{ color: '#6B7280', fontSize: 14, padding: 16, borderBottom: '1px solid #F0EEEA' }}>
                   {formatDate(shipment.requested_at)}
@@ -219,7 +231,7 @@ export default function ShipmentFilterTabs({
           </tbody>
         </table>
 
-        {filteredShipments.length === 0 && (
+        {shipments.length === 0 && (
           <div
             style={{
               color: '#6B7280',
@@ -231,6 +243,55 @@ export default function ShipmentFilterTabs({
             표시할 배송 건이 없습니다.
           </div>
         )}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 16,
+        }}
+      >
+        <div style={{ color: '#6B7280', fontSize: 13, fontWeight: 700 }}>
+          총 {totalCount.toLocaleString()}건 · {page} / {totalPages} 페이지
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link
+            href={buildPageHref(activeStatus, q, Math.max(page - 1, 1))}
+            aria-disabled={page <= 1}
+            style={{
+              backgroundColor: page <= 1 ? '#F3F4F6' : '#FFFFFF',
+              color: page <= 1 ? '#9CA3AF' : '#1A1A1A',
+              border: '1px solid #E0DDD8',
+              borderRadius: 10,
+              padding: '9px 13px',
+              fontSize: 13,
+              fontWeight: 800,
+              textDecoration: 'none',
+              pointerEvents: page <= 1 ? 'none' : 'auto',
+            }}
+          >
+            이전
+          </Link>
+          <Link
+            href={buildPageHref(activeStatus, q, page + 1)}
+            aria-disabled={page >= totalPages}
+            style={{
+              backgroundColor: page >= totalPages ? '#F3F4F6' : '#FFFFFF',
+              color: page >= totalPages ? '#9CA3AF' : '#1A1A1A',
+              border: '1px solid #E0DDD8',
+              borderRadius: 10,
+              padding: '9px 13px',
+              fontSize: 13,
+              fontWeight: 800,
+              textDecoration: 'none',
+              pointerEvents: page >= totalPages ? 'none' : 'auto',
+            }}
+          >
+            다음
+          </Link>
+        </div>
       </div>
     </div>
   )
