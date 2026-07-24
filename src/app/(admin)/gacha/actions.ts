@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -40,18 +41,30 @@ export async function createGachaSeriesAction(
   }
 
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('gacha_series').insert({
-    name,
-    description: description || null,
-    thumbnail_url: thumbnailUrl || null,
-    coin_price_per_pull: coinPricePerPull,
-    max_concurrent_users: maxConcurrentUsers,
-    status,
-  })
+  const { data: inserted, error } = await adminClient
+    .from('gacha_series')
+    .insert({
+      name,
+      description: description || null,
+      thumbnail_url: thumbnailUrl || null,
+      coin_price_per_pull: coinPricePerPull,
+      max_concurrent_users: maxConcurrentUsers,
+      status,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'gacha_series',
+    targetId: inserted?.id,
+    details: { table: 'gacha_series', name },
+  })
 
   revalidatePath('/gacha')
   redirect('/gacha')
@@ -95,6 +108,14 @@ export async function updateGachaSeriesAction(
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'gacha_series',
+    targetId: seriesId,
+    details: { table: 'gacha_series', name },
+  })
 
   revalidatePath('/gacha')
   revalidatePath(`/gacha/${seriesId}`)
@@ -143,6 +164,14 @@ export async function createGachaProductAction(
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'gacha_products',
+    targetId: inserted?.id,
+    details: { table: 'gacha_products', name, initial_stock: initialStock },
+  })
 
   // 초기 재고 수량이 입력된 경우에만 재고 생성 (선택)
   if (initialStock > 0 && inserted?.id) {
@@ -207,6 +236,14 @@ export async function addGachaInventoryAction(
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'gacha_inventory',
+    targetId: productId,
+    details: { table: 'gacha_inventory', quantity },
+  })
 
   revalidatePath('/gacha')
   revalidatePath(`/gacha/${seriesId}`)
@@ -307,6 +344,12 @@ export async function deleteGachaSeriesAction(
     }
   }
 
+  const { data: seriesRow } = await adminClient
+    .from('gacha_series')
+    .select('name')
+    .eq('id', seriesId)
+    .single()
+
   const { error } = await adminClient
     .from('gacha_series')
     .delete()
@@ -315,6 +358,14 @@ export async function deleteGachaSeriesAction(
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_delete',
+    targetType: 'gacha_series',
+    targetId: seriesId,
+    details: { table: 'gacha_series', name: seriesRow?.name ?? seriesId },
+  })
 
   revalidatePath('/gacha')
   redirect('/gacha')

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   BANNER_BUCKET,
@@ -142,20 +143,32 @@ export async function createBannerAction(
   const { linkValue } = normalizeLinkValue(linkType, fields.linkValueRaw)
 
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('home_banners').insert({
-    title: fields.title,
-    image_url: fields.imageUrl,
-    link_type: linkType,
-    link_value: linkValue,
-    display_order: fields.displayOrder,
-    is_active: fields.isActive,
-    starts_at: fields.startsAt,
-    ends_at: fields.endsAt,
-  })
+  const { data: inserted, error } = await adminClient
+    .from('home_banners')
+    .insert({
+      title: fields.title,
+      image_url: fields.imageUrl,
+      link_type: linkType,
+      link_value: linkValue,
+      display_order: fields.displayOrder,
+      is_active: fields.isActive,
+      starts_at: fields.startsAt,
+      ends_at: fields.endsAt,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'home_banners',
+    targetId: inserted?.id,
+    details: { table: 'home_banners', name: fields.title },
+  })
 
   revalidatePath('/banners')
   redirect('/banners')
@@ -213,6 +226,14 @@ export async function updateBannerAction(
     await removeBannerImageBestEffort(fields.previousImageUrl)
   }
 
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'home_banners',
+    targetId: bannerId,
+    details: { table: 'home_banners', name: fields.title },
+  })
+
   revalidatePath('/banners')
   redirect('/banners')
 }
@@ -239,6 +260,14 @@ export async function toggleBannerActiveAction(
     return { error: error.message }
   }
 
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'home_banners',
+    targetId: bannerId,
+    details: { table: 'home_banners', is_active: isActive },
+  })
+
   revalidatePath('/banners')
   return {}
 }
@@ -252,7 +281,7 @@ export async function deleteBannerAction(bannerId: string) {
   const adminClient = createAdminClient()
   const { data: existing, error: fetchError } = await adminClient
     .from('home_banners')
-    .select('id, image_url')
+    .select('id, title, image_url')
     .eq('id', bannerId)
     .single()
 
@@ -270,6 +299,14 @@ export async function deleteBannerAction(bannerId: string) {
   }
 
   await removeBannerImageBestEffort(existing?.image_url)
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_delete',
+    targetType: 'home_banners',
+    targetId: bannerId,
+    details: { table: 'home_banners', name: existing?.title ?? bannerId },
+  })
 
   revalidatePath('/banners')
   redirect('/banners')

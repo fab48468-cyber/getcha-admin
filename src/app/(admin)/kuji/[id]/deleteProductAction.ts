@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const COUNT_LABELS: Record<string, { label: string; unit: string }> = {
@@ -82,6 +83,17 @@ export async function deleteKujiProductAction(
       }
     }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_delete',
+    targetType: 'kuji_products',
+    targetId: productId,
+    details: {
+      table: 'kuji_products',
+      name: result.deleted?.name ?? result.name ?? productId,
+    },
+  })
 
   revalidatePath('/kuji')
   revalidatePath(`/kuji/${seriesId}`)

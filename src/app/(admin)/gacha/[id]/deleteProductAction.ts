@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const COUNT_LABELS: Record<string, { label: string; unit: string }> = {
@@ -83,6 +84,17 @@ export async function deleteGachaProductAction(
       }
     }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_delete',
+    targetType: 'gacha_products',
+    targetId: productId,
+    details: {
+      table: 'gacha_products',
+      name: result.deleted?.name ?? result.name ?? productId,
+    },
+  })
 
   revalidatePath('/gacha')
   revalidatePath(`/gacha/${seriesId}`)

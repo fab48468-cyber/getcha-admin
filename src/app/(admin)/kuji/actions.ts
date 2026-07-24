@@ -4,6 +4,7 @@ import { randomInt } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -50,11 +51,23 @@ export async function createKujiSeriesAction(
     remaining_tickets: 0,
   }
 
-  const { error } = await adminClient.from('kuji_series').insert(insertPayload)
+  const { data: inserted, error } = await adminClient
+    .from('kuji_series')
+    .insert(insertPayload)
+    .select('id')
+    .single()
 
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'kuji_series',
+    targetId: inserted?.id,
+    details: { table: 'kuji_series', name },
+  })
 
   revalidatePath('/kuji')
   redirect('/kuji')
@@ -99,6 +112,14 @@ export async function updateKujiSeriesAction(
     return { error: error.message }
   }
 
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'kuji_series',
+    targetId: seriesId,
+    details: { table: 'kuji_series', name },
+  })
+
   revalidatePath('/kuji')
   revalidatePath(`/kuji/${seriesId}`)
   return { error: '', success: '저장되었습니다.' }
@@ -130,19 +151,31 @@ export async function createKujiProductAction(
   }
 
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('kuji_products').insert({
-    series_id: seriesId,
-    name,
-    description: description || null,
-    image_url: imageUrl || null,
-    grade,
-    is_last_one: isLastOne,
-    display_order: displayOrder,
-  })
+  const { data: inserted, error } = await adminClient
+    .from('kuji_products')
+    .insert({
+      series_id: seriesId,
+      name,
+      description: description || null,
+      image_url: imageUrl || null,
+      grade,
+      is_last_one: isLastOne,
+      display_order: displayOrder,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'kuji_products',
+    targetId: inserted?.id,
+    details: { table: 'kuji_products', name },
+  })
 
   revalidatePath(`/kuji/${seriesId}`)
   return {
@@ -275,6 +308,14 @@ export async function createKujiTicketsAction(
     return { error: updateError.message }
   }
 
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'kuji_tickets',
+    targetId: seriesId,
+    details: { table: 'kuji_tickets', ticket_count: rows.length },
+  })
+
   revalidatePath('/kuji')
   revalidatePath(`/kuji/${seriesId}`)
   return { error: '', success: `${rows.length.toLocaleString()}장 생성되었습니다.` }
@@ -287,6 +328,12 @@ export async function deleteKujiSeriesAction(seriesId: string) {
   }
 
   const adminClient = createAdminClient()
+
+  const { data: seriesRow } = await adminClient
+    .from('kuji_series')
+    .select('name')
+    .eq('id', seriesId)
+    .single()
 
   // 1. 판매 이력 확인 — 있으면 삭제 거부
   const { count: purchaseCount, error: purchaseCheckError } = await adminClient
@@ -363,6 +410,14 @@ export async function deleteKujiSeriesAction(seriesId: string) {
   if (seriesError) {
     return { error: `kuji_series 삭제 실패: ${seriesError.message}` }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_delete',
+    targetType: 'kuji_series',
+    targetId: seriesId,
+    details: { table: 'kuji_series', name: seriesRow?.name ?? seriesId },
+  })
 
   revalidatePath('/kuji')
   redirect('/kuji')

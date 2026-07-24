@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -79,13 +80,23 @@ export async function addBadInventoryAction(
     insertPayload.is_featured = isFeatured
   }
 
-  const { error: insertError } = await adminClient
+  const { data: inserted, error: insertError } = await adminClient
     .from('bad_inventory')
     .insert(insertPayload)
+    .select('id')
+    .single()
 
   if (insertError) {
     return { error: insertError.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'bad_inventory',
+    targetId: inserted?.id,
+    details: { table: 'bad_inventory', pool_type: poolType, product_type: productType },
+  })
 
   revalidatePath('/bad-inventory')
   return { error: '', success: '재고가 추가되었습니다.' }
@@ -113,6 +124,14 @@ export async function toggleFeaturedAction(
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'bad_inventory',
+    targetId: itemId,
+    details: { table: 'bad_inventory', is_featured: isFeatured },
+  })
 
   revalidatePath('/bad-inventory')
   return {}
@@ -142,6 +161,14 @@ export async function consumeItemAction(
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'bad_inventory',
+    targetId: itemId,
+    details: { table: 'bad_inventory', status: 'consumed' },
+  })
 
   revalidatePath('/bad-inventory')
   return {}

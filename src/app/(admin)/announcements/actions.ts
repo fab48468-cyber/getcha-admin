@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -63,19 +64,31 @@ export async function createAnnouncementAction(
   }
 
   const adminClient = createAdminClient()
-  const { error } = await adminClient.from('announcements').insert({
-    title: fields.title,
-    content: fields.content,
-    category: fields.category,
-    is_pinned: fields.isPinned,
-    published_at: fields.publishedAt,
-    expires_at: fields.expiresAt,
-    created_by: admin.id,
-  })
+  const { data: inserted, error } = await adminClient
+    .from('announcements')
+    .insert({
+      title: fields.title,
+      content: fields.content,
+      category: fields.category,
+      is_pinned: fields.isPinned,
+      published_at: fields.publishedAt,
+      expires_at: fields.expiresAt,
+      created_by: admin.id,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     return { error: error.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'announcements',
+    targetId: inserted?.id,
+    details: { table: 'announcements', name: fields.title },
+  })
 
   revalidatePath('/announcements')
   redirect('/announcements')
@@ -115,6 +128,14 @@ export async function updateAnnouncementAction(
     return { error: error.message }
   }
 
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_update',
+    targetType: 'announcements',
+    targetId: announcementId,
+    details: { table: 'announcements', name: fields.title },
+  })
+
   revalidatePath('/announcements')
   revalidatePath(`/announcements/${announcementId}`)
   return { error: '', success: '저장되었습니다.' }
@@ -127,6 +148,12 @@ export async function deleteAnnouncementAction(announcementId: string) {
   }
 
   const adminClient = createAdminClient()
+  const { data: existing } = await adminClient
+    .from('announcements')
+    .select('title')
+    .eq('id', announcementId)
+    .single()
+
   const { error } = await adminClient
     .from('announcements')
     .delete()
@@ -135,6 +162,14 @@ export async function deleteAnnouncementAction(announcementId: string) {
   if (error) {
     throw new Error(error.message)
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_delete',
+    targetType: 'announcements',
+    targetId: announcementId,
+    details: { table: 'announcements', name: existing?.title ?? announcementId },
+  })
 
   revalidatePath('/announcements')
   redirect('/announcements')

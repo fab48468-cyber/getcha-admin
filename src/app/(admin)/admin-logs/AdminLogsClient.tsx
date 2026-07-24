@@ -20,6 +20,11 @@ type ActionFilter =
   | 'suspend_user'
   | 'activate_user'
   | 'remove_penalty'
+  | 'content_create'
+  | 'content_update'
+  | 'content_delete'
+  | 'shipment_status_change'
+  | 'shipment_export'
 
 const ACTION_FILTER_OPTIONS: { value: ActionFilter; label: string }[] = [
   { value: 'all', label: '전체' },
@@ -30,6 +35,11 @@ const ACTION_FILTER_OPTIONS: { value: ActionFilter; label: string }[] = [
   { value: 'suspend_user', label: '계정 정지' },
   { value: 'activate_user', label: '계정 활성화' },
   { value: 'remove_penalty', label: '패널티 해제' },
+  { value: 'content_create', label: '생성' },
+  { value: 'content_update', label: '수정' },
+  { value: 'content_delete', label: '삭제' },
+  { value: 'shipment_status_change', label: '배송 상태' },
+  { value: 'shipment_export', label: '내보내기' },
 ]
 
 const BADGE_STYLES: Record<
@@ -43,6 +53,11 @@ const BADGE_STYLES: Record<
   suspend_user: { label: '계정 정지', backgroundColor: '#FEE2E2', color: '#DC2626' },
   activate_user: { label: '계정 활성화', backgroundColor: '#EEFBD0', color: '#5B8B1E' },
   remove_penalty: { label: '패널티 해제', backgroundColor: '#EEF0FF', color: '#8B5CF6' },
+  content_create: { label: '생성', backgroundColor: '#EEFBD0', color: '#5B8B1E' },
+  content_update: { label: '수정', backgroundColor: '#EEF0FF', color: '#8B5CF6' },
+  content_delete: { label: '삭제', backgroundColor: '#FEE2E2', color: '#DC2626' },
+  shipment_status_change: { label: '배송 상태', backgroundColor: '#DBEAFE', color: '#2563EB' },
+  shipment_export: { label: '내보내기', backgroundColor: '#F3F4F6', color: '#6B7280' },
 }
 
 const DEFAULT_BADGE = {
@@ -86,6 +101,19 @@ export function formatActionDetails(
   if (!details) return '-'
 
   const parts: string[] = []
+
+  const table = details.table
+  const name = details.name
+  if (typeof table === 'string' && table.trim()) {
+    if (typeof name === 'string' && name.trim()) {
+      parts.push(`[${table.trim()}] ${name.trim()}`)
+    } else {
+      parts.push(`[${table.trim()}]`)
+    }
+  } else if (typeof name === 'string' && name.trim()) {
+    parts.push(name.trim())
+  }
+
   const amount = parseAmount(details)
 
   if (amount != null) {

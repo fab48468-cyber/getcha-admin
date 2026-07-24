@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWriteAdmin } from '@/lib/auth'
+import { logAdminAction } from '@/lib/adminLog'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 type ActionState = {
@@ -73,6 +74,20 @@ export async function addConfirmExchangeInventoryAction(
   if (insertError) {
     return { error: insertError.message }
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    actionType: 'content_create',
+    targetType: 'confirm_exchange_inventory',
+    targetId: productId,
+    details: {
+      table: 'confirm_exchange_inventory',
+      series_id: seriesId,
+      product_id: productId,
+      quantity,
+      token_price: tokenPrice,
+    },
+  })
 
   revalidatePath('/workshop')
   return {
