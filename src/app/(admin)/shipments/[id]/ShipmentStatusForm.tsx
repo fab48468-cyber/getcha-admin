@@ -1,6 +1,11 @@
 'use client'
 
 import { useActionState, useMemo, useState } from 'react'
+import {
+  buildTrackingUrl,
+  COURIER_OPTIONS,
+  isPredefinedCourier,
+} from '@/lib/tracking'
 import { updateShipmentAction } from '../actions'
 
 export type ShipmentStatus =
@@ -21,29 +26,8 @@ export type ShipmentStatusFormData = {
   admin_memo: string | null
 }
 
-const COURIER_OPTIONS = [
-  'CJ대한통운',
-  '한진택배',
-  '롯데택배',
-  '우체국택배',
-  '로젠택배',
-] as const
-
 const CUSTOM_COURIER_OPTION = '직접입력'
 const NO_COURIER_OPTION = ''
-
-const TRACKING_URL_BUILDERS: Record<(typeof COURIER_OPTIONS)[number], (trackingNumber: string) => string> = {
-  CJ대한통운: (trackingNumber) =>
-    `https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${trackingNumber}`,
-  한진택배: (trackingNumber) =>
-    `https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2=${trackingNumber}`,
-  롯데택배: (trackingNumber) =>
-    `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${trackingNumber}`,
-  우체국택배: (trackingNumber) =>
-    `https://service.epost.go.kr/trace.RetrieveEmsRigiTraceList.comm?POST_CODE=${trackingNumber}`,
-  로젠택배: (trackingNumber) =>
-    `https://www.ilogen.com/iLogenHomePage/TRACE/TraceInfo.do?slipno=${trackingNumber}`,
-}
 
 const STATUS_STYLES: Record<ShipmentStatus, { label: string; color: string }> = {
   requested: { label: '배송신청', color: '#F59E0B' },
@@ -94,19 +78,6 @@ const labelStyle = {
   fontWeight: 800,
   marginBottom: 6,
 } as const
-
-function isPredefinedCourier(value: string | null) {
-  return COURIER_OPTIONS.includes(value as (typeof COURIER_OPTIONS)[number])
-}
-
-function buildTrackingUrl(courierCompany: string, trackingNumber: string) {
-  const trimmedNumber = trackingNumber.trim()
-  if (!trimmedNumber) return ''
-
-  const builder =
-    TRACKING_URL_BUILDERS[courierCompany as (typeof COURIER_OPTIONS)[number]]
-  return builder ? builder(trimmedNumber) : ''
-}
 
 function getInitialCourierSelect(courierCompany: string | null) {
   if (courierCompany && isPredefinedCourier(courierCompany)) {

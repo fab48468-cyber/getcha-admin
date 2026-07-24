@@ -129,7 +129,7 @@ export default async function ShipmentsPage({
   })
 
   const admin = await getAdminUser()
-  const canExport = Boolean(admin && admin.role !== 'cs')
+  const canWrite = Boolean(admin && admin.role !== 'cs')
   const exportParams = new URLSearchParams()
   if (activeStatus !== 'all') exportParams.set('status', activeStatus)
   if (q) exportParams.set('q', q)
@@ -164,8 +164,23 @@ export default async function ShipmentsPage({
           </p>
         </div>
 
-        {canExport && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {canWrite && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+            <a
+              href="/shipments/bulk-tracking"
+              style={{
+                backgroundColor: '#FFFFFF',
+                color: '#1A1A1A',
+                border: '1px solid #E0DDD8',
+                borderRadius: 10,
+                padding: '10px 14px',
+                fontSize: 13,
+                fontWeight: 900,
+                textDecoration: 'none',
+              }}
+            >
+              송장 일괄 업로드
+            </a>
             <a
               href={exportHref}
               style={{
